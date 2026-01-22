@@ -815,16 +815,6 @@ function App() {
                                     {/* Enhanced Overlay on Hover */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-wedding-blue-950/90 via-wedding-blue-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-between p-3 sm:p-4 lg:p-6">
                                         <div className="flex justify-end">
-                                            <div className="flex items-center gap-1">
-                                                {[...Array(5)].map((_, i) => (
-                                                    <Star
-                                                        key={i}
-                                                        size={12}
-                                                        className={i < Math.min(5, Math.floor(photo.likes / 2)) ? "gold-accent" : "text-white/30"}
-                                                        fill="currentColor"
-                                                    />
-                                                ))}
-                                            </div>
                                         </div>
 
                                         <div className="flex justify-between items-end">
