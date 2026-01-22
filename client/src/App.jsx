@@ -20,6 +20,7 @@ function App() {
     const [filterCategory, setFilterCategory] = useState('tất cả');
     const [multipleFiles, setMultipleFiles] = useState([]);
     const [likingPhotoId, setLikingPhotoId] = useState(null);
+    const [zoomedImage, setZoomedImage] = useState(null);
 
     useEffect(() => {
         fetchPhotos();
@@ -718,6 +719,92 @@ function App() {
                 </section>
             )}
 
+            {/* Image Zoom Modal */}
+            {zoomedImage && (
+                <div
+                    className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                    onClick={() => setZoomedImage(null)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.3 }}
+                        className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Close Button */}
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setZoomedImage(null)}
+                            className="absolute top-4 right-4 z-10 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                        >
+                            <X size={24} className="text-white" />
+                        </motion.button>
+
+                        {/* Image Container */}
+                        <div className="relative w-full h-full flex items-center justify-center">
+                            <img
+                                src={zoomedImage.url}
+                                alt="Wedding moment zoomed"
+                                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                            />
+
+                            {/* Image Info Overlay */}
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-4 text-white" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="text-sm opacity-90">Danh mục: {zoomedImage.category}</p>
+                                        <p className="text-xs opacity-75 mt-1">
+                                            {new Date(zoomedImage.createdAt).toLocaleDateString('vi-VN', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric'
+                                            })}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleLike(zoomedImage._id);
+                                            }}
+                                            disabled={likingPhotoId === zoomedImage._id}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${likingPhotoId === zoomedImage._id
+                                                ? 'bg-gray-500 cursor-not-allowed'
+                                                : 'bg-white/20 backdrop-blur-md hover:bg-red-500 hover:text-white'
+                                                }`}
+                                        >
+                                            {likingPhotoId === zoomedImage._id ? (
+                                                <Loader2 size={16} className="animate-spin" />
+                                            ) : (
+                                                <Heart size={16} className={photos.find(p => p._id === zoomedImage._id)?.likes > 0 ? "text-red-400 fill-current" : ""} />
+                                            )}
+                                            <span className="font-bold">{photos.find(p => p._id === zoomedImage._id)?.likes || 0}</span>
+                                        </motion.button>
+
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                downloadPhoto(zoomedImage.url, zoomedImage._id, zoomedImage.category);
+                                            }}
+                                            className="flex items-center gap-2 bg-wedding-gold-500/80 backdrop-blur-md px-4 py-2 rounded-full text-white hover:bg-wedding-gold-600 transition-all duration-300"
+                                        >
+                                            <Download size={16} />
+                                        </motion.button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
             {/* Gallery Section */}
             <main className="max-w-7xl mx-auto px-4 py-24">
                 <motion.div
@@ -807,7 +894,7 @@ function App() {
                     </div>
                 </motion.div>
 
-                <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 lg:gap-8 space-y-4 sm:space-y-6 lg:space-y-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
                     <AnimatePresence>
                         {photos
                             .filter(photo => filterCategory === 'tất cả' || photo.category === filterCategory)
@@ -818,13 +905,15 @@ function App() {
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.8 }}
                                     transition={{ delay: index * 0.1, duration: 0.5 }}
-                                    className="relative group break-inside-avoid rounded-2xl sm:rounded-3xl overflow-hidden shadow-wedding wedding-card border-2 border-transparent hover:border-wedding-blue-200 transition-all duration-500 gallery-item fade-in-up"
+                                    className="relative group rounded-2xl sm:rounded-3xl overflow-hidden shadow-wedding wedding-card border-2 border-transparent hover:border-wedding-blue-200 transition-all duration-500 gallery-item fade-in-up cursor-pointer"
+                                    onClick={() => setZoomedImage(photo)}
                                 >
                                     <div className="relative">
                                         <img
                                             src={photo.url}
                                             alt="Wedding moment"
-                                            className="w-full h-auto gallery-image"
+                                            className="w-full h-auto gallery-image cursor-pointer"
+                                            onClick={() => setZoomedImage(photo)}
                                         />
 
                                         {/* Decorative corner */}
@@ -841,11 +930,14 @@ function App() {
                                             <motion.button
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
-                                                onClick={() => handleLike(photo._id)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleLike(photo._id);
+                                                }}
                                                 disabled={likingPhotoId === photo._id}
                                                 className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full transition-all duration-300 shadow-lg text-xs sm:text-sm ${likingPhotoId === photo._id
-                                                        ? 'bg-gray-300 cursor-not-allowed'
-                                                        : 'bg-white/90 backdrop-blur-md text-wedding-blue-900 hover:bg-red-500 hover:text-white'
+                                                    ? 'bg-gray-300 cursor-not-allowed'
+                                                    : 'bg-white/90 backdrop-blur-md text-wedding-blue-900 hover:bg-red-500 hover:text-white'
                                                     }`}
                                             >
                                                 {likingPhotoId === photo._id ? (
@@ -860,7 +952,10 @@ function App() {
                                                 <motion.button
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
-                                                    onClick={() => downloadPhoto(photo.url, photo._id, photo.category)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        downloadPhoto(photo.url, photo._id, photo.category);
+                                                    }}
                                                     className="flex items-center gap-1 sm:gap-2 bg-wedding-gold-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-wedding-gold-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
                                                 >
                                                     <Download size={16} />
@@ -870,7 +965,10 @@ function App() {
                                                     <motion.button
                                                         whileHover={{ scale: 1.1 }}
                                                         whileTap={{ scale: 0.9 }}
-                                                        onClick={() => handleDelete(photo._id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDelete(photo._id);
+                                                        }}
                                                         className="flex items-center gap-1 sm:gap-2 bg-red-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-red-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
                                                     >
                                                         <Trash2 size={16} />
