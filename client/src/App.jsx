@@ -356,7 +356,7 @@ function App() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="text-xl sm:text-2xl md:text-3xl font-dancing font-bold mb-6 sm:mb-8 gold-accent"
+                        className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-dancing font-bold mb-6 sm:mb-8 gold-accent"
                     >
                         Huy & Ý
                     </motion.p>
@@ -551,7 +551,7 @@ function App() {
                             <p className="text-xl text-wedding-blue-700 mb-2">
                                 Chỉ admin mới có thể tải ảnh lên thư viện
                             </p>
-                            <p className="text-wedding-blue-600 font-dancing text-lg">
+                            <p className="text-wedding-blue-600 font-dancing text-xl sm:text-2xl md:text-3xl">
                                 Quản lý khoảnh khắc đẹp nhất của đám cưới
                             </p>
                         </div>
@@ -709,7 +709,7 @@ function App() {
                     <h2 className="text-5xl font-playfair font-bold text-wedding-blue-900 mb-4">
                         Khoảnh khắc <span className="gold-accent">yêu thương</span>
                     </h2>
-                    <p className="text-xl text-wedding-blue-700 font-dancing">
+                    <p className="text-2xl sm:text-3xl md:text-4xl text-wedding-blue-700 font-dancing">
                         Những kỷ niệm đẹp đẽ của chúng ta
                     </p>
                     <div className="mt-6 h-1 w-32 bg-gradient-to-r from-wedding-blue-400 to-wedding-gold-400 mx-auto rounded-full" />
@@ -846,7 +846,6 @@ function App() {
                                                     className="flex items-center gap-1 sm:gap-2 bg-wedding-gold-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-wedding-gold-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
                                                 >
                                                     <Download size={16} />
-                                                    <span className="font-bold hidden sm:inline">Tải</span>
                                                 </motion.button>
 
                                                 {isAdmin && (
@@ -857,7 +856,6 @@ function App() {
                                                         className="flex items-center gap-1 sm:gap-2 bg-red-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-red-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
                                                     >
                                                         <Trash2 size={16} />
-                                                        <span className="font-bold hidden sm:inline">Xóa</span>
                                                     </motion.button>
                                                 )}
                                             </div>
