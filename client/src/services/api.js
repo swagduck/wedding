@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api" });
+const API = axios.create({ baseURL: "https://wedding-f35z.onrender.com/api" });
 
 export const fetchPhotos = () => API.get("/photos");
 export const uploadPhoto = (formData) => API.post("/upload", formData);
