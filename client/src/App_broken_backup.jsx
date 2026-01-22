@@ -227,19 +227,12 @@ function App() {
 
     const downloadPhoto = async (photoUrl, photoId, category) => {
         try {
-            // Fetch the image as a blob
-            const response = await fetch(photoUrl);
-            const blob = await response.blob();
-
-            // Create a blob URL
-            const blobUrl = URL.createObjectURL(blob);
-
             // Create a temporary link element
             const link = document.createElement('a');
-            link.href = blobUrl;
+            link.href = photoUrl;
 
             // Generate filename based on category and ID
-            const categoryName = category.replace('ảnh ', '').replace(/ /g, '_');
+            const categoryName = category.replace('ảnh ', '').replace(' ', '_');
             const filename = `wedding_${categoryName}_${photoId}.jpg`;
 
             link.download = filename;
@@ -249,9 +242,6 @@ function App() {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-
-            // Clean up the blob URL
-            URL.revokeObjectURL(blobUrl);
 
             toast.success("Đã tải ảnh thành công!");
         } catch (err) {
@@ -837,124 +827,57 @@ function App() {
                                                 <Heart size={16} className={photo.likes > 0 ? "text-red-500 fill-current heartbeat" : ""} />
                                                 <span className="font-bold">{photo.likes}</span>
                                             </motion.button>
-
-                                            <div className="flex items-center gap-2">
-                                                <motion.button
-                                                    whileHover={{ scale: 1.1 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    onClick={() => downloadPhoto(photo.url, photo._id, photo.category)}
-                                                    className="flex items-center gap-1 sm:gap-2 bg-wedding-gold-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-wedding-gold-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
-                                                >
-                                                    <Download size={16} />
-                                                    <span className="font-bold hidden sm:inline">Tải</span>
-                                                </motion.button>
-
-                                                {isAdmin && (
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        onClick={() => handleDelete(photo._id)}
-                                                        className="flex items-center gap-1 sm:gap-2 bg-red-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-red-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                        <span className="font-bold hidden sm:inline">Xóa</span>
-                                                    </motion.button>
-                                                )}
+                                            <div className="flex justify-center mb-6">
+                                                <div className="flex items-center gap-3">
+                                                    <Heart size={24} className="text-red-400 fill-current animate-pulse heartbeat" />
+                                                    <span className="text-2xl font-playfair font-bold gold-accent">Huy & Ý</span>
+                                                    <Heart size={24} className="text-red-400 fill-current animate-pulse heartbeat" />
+                                                </div>
                                             </div>
-                                        </div>
+
+                                            <p className="text-xl font-dancing mb-4 text-wedding-blue-200">
+                                                "Tình yêu là hành trình đẹp nhất"
+                                            </p>
+
+                                            <div className="flex justify-center items-center gap-8 mb-8">
+                                                <div className="flex items-center gap-2 text-wedding-blue-300">
+                                                    <Star size={16} className="gold-accent" fill="currentColor" />
+                                                    <span className="text-sm">Forever</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-wedding-blue-300">
+                                                    <Flower size={16} className="text-pink-400" fill="currentColor" />
+                                                    <span className="text-sm">Always</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-wedding-blue-300">
+                                                    <Heart size={16} className="text-red-400" fill="currentColor" />
+                                                    <span className="text-sm">Together</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="h-px bg-gradient-to-r from-transparent via-wedding-gold-400 to-transparent w-32 mx-auto mb-8" />
+                                        </motion.div>
+
+                                        <motion.p
+                                            initial={{ opacity: 0 }}
+                                            whileInView={{ opacity: 1 }}
+                                            transition={{ delay: 0.2 }}
+                                            className="text-wedding-blue-400 font-medium"
+                                        >
+                                            Made with <span className="text-red-400 animate-pulse heartbeat">❤️</span> for my Sister's Big Day
+                                        </motion.p>
+
+                                        <motion.p
+                                            initial={{ opacity: 0 }}
+                                            whileInView={{ opacity: 1 }}
+                                            transition={{ delay: 0.3 }}
+                                            className="text-sm text-wedding-blue-500 mt-4"
+                                        >
+                                            © 2026 Wedding Gallery. Wishing you a lifetime of love and happiness.
+                                        </motion.p>
                                     </div>
-                                </motion.div>
-                            ))}
-                    </AnimatePresence>
-                </div>
-
-                {photos.length === 0 && !loading && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center py-32"
-                    >
-                        <div className="flex items-center justify-center w-32 h-32 bg-wedding-blue-100 rounded-full mb-8 pulse-glow mx-auto">
-                            <ImageIcon size={48} className="text-wedding-blue-400 floating" />
-                        </div>
-                        <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 mb-4 text-center">
-                            Chưa có tấm ảnh nào
-                        </h3>
-                        <p className="text-xl text-wedding-blue-700 mb-2 text-center">
-                            Hãy là người đầu tiên chia sẻ khoảnh khắc đẹp nhất!
-                        </p>
-                        <p className="text-wedding-blue-600 font-dancing text-center">
-                            Mỗi tấm ảnh là một câu chuyện tình yêu
-                        </p>
-                    </motion.div>
-                )}
-            </main>
-
-            <footer className="relative bg-gradient-to-r from-wedding-blue-900 via-wedding-blue-800 to-wedding-blue-900 text-white py-16 mt-20 overflow-hidden">
-                {/* Decorative background */}
-                <div className="absolute inset-0">
-                    <div className="absolute top-0 left-10 w-32 h-32 bg-wedding-gold-400/10 rounded-full blur-2xl" />
-                    <div className="absolute bottom-0 right-10 w-40 h-40 bg-wedding-blue-400/10 rounded-full blur-2xl" />
-                </div>
-
-                <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6 }}
-                        className="mb-8"
-                    >
-                        <div className="flex justify-center mb-6">
-                            <div className="flex items-center gap-3">
-                                <Heart size={24} className="text-red-400 fill-current animate-pulse heartbeat" />
-                                <span className="text-2xl font-playfair font-bold gold-accent">Huy & Ý</span>
-                                <Heart size={24} className="text-red-400 fill-current animate-pulse heartbeat" />
-                            </div>
-                        </div>
-
-                        <p className="text-xl font-dancing mb-4 text-wedding-blue-200">
-                            "Tình yêu là hành trình đẹp nhất"
-                        </p>
-
-                        <div className="flex justify-center items-center gap-8 mb-8">
-                            <div className="flex items-center gap-2 text-wedding-blue-300">
-                                <Star size={16} className="gold-accent" fill="currentColor" />
-                                <span className="text-sm">Forever</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-wedding-blue-300">
-                                <Flower size={16} className="text-pink-400" fill="currentColor" />
-                                <span className="text-sm">Always</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-wedding-blue-300">
-                                <Heart size={16} className="text-red-400" fill="currentColor" />
-                                <span className="text-sm">Together</span>
-                            </div>
-                        </div>
-
-                        <div className="h-px bg-gradient-to-r from-transparent via-wedding-gold-400 to-transparent w-32 mx-auto mb-8" />
-                    </motion.div>
-
-                    <motion.p
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-wedding-blue-400 font-medium"
-                    >
-                        Made with <span className="text-red-400 animate-pulse heartbeat">❤️</span> for my Sister's Big Day
-                    </motion.p>
-
-                    <motion.p
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 1 }}
-                        transition={{ delay: 0.3 }}
-                        className="text-sm text-wedding-blue-500 mt-4"
-                    >
-                        © 2026 Wedding Gallery. Wishing you a lifetime of love and happiness.
-                    </motion.p>
-                </div>
-            </footer>
-        </div>
-    );
+                                </footer>
+                                </div>
+                );
 }
 
-export default App;
+                export default App;
