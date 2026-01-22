@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://wedding-f35z.onrender.com/api';
 
 function App() {
     const [photos, setPhotos] = useState([]);

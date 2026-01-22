@@ -14,4 +14,7 @@ export default defineConfig({
     outDir: "dist",
     assetsDir: "assets",
   },
+  define: {
+    __APP_VERSION__: JSON.stringify(new Date().getTime()),
+  },
 });
