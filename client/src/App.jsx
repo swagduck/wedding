@@ -159,7 +159,7 @@ function App() {
             <Toaster position="top-center" />
 
             {/* Hero Section */}
-            <header className="relative h-[70vh] flex flex-col items-center justify-center wedding-gradient text-white overflow-hidden">
+            <header className="relative h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center wedding-gradient text-white overflow-hidden">
                 {/* Decorative Elements */}
                 <div className="absolute inset-0">
                     <div className="absolute top-10 left-10 text-wedding-gold-300 animate-float floating">
@@ -177,26 +177,26 @@ function App() {
                 </div>
 
                 {/* Admin Login/Logout Button */}
-                <div className="absolute top-6 right-6 z-20">
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
                     {isAdmin ? (
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={handleLogout}
-                            className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-6 py-3 rounded-full text-white hover:bg-white/30 transition-all duration-200 border border-white/20"
+                            className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 sm:px-6 sm:py-3 rounded-full text-white hover:bg-white/30 transition-all duration-200 border border-white/20"
                         >
-                            <LogOut size={18} />
-                            <span className="text-sm font-medium">Đăng xuất</span>
+                            <LogOut size={16} className="sm:size-18" />
+                            <span className="text-xs sm:text-sm font-medium hidden sm:inline">Đăng xuất</span>
                         </motion.button>
                     ) : (
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setShowLogin(true)}
-                            className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-6 py-3 rounded-full text-white hover:bg-white/30 transition-all duration-200 border border-white/20"
+                            className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 sm:px-6 sm:py-3 rounded-full text-white hover:bg-white/30 transition-all duration-200 border border-white/20"
                         >
-                            <LogIn size={18} />
-                            <span className="text-sm font-medium">Admin</span>
+                            <LogIn size={16} className="sm:size-18" />
+                            <span className="text-xs sm:text-sm font-medium hidden sm:inline">Admin</span>
                         </motion.button>
                     )}
                 </div>
@@ -208,7 +208,7 @@ function App() {
                     className="z-10 text-center px-4"
                 >
                     <div className="relative">
-                        <h1 className="text-6xl md:text-8xl font-playfair font-black mb-6 tracking-tight">
+                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-playfair font-black mb-4 sm:mb-6 tracking-tight">
                             <span className="shimmer-text">Wedding</span>
                             <span className="gold-accent"> Gallery</span>
                         </h1>
@@ -221,7 +221,7 @@ function App() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="text-2xl md:text-3xl font-dancing font-bold mb-8 gold-accent"
+                        className="text-xl sm:text-2xl md:text-3xl font-dancing font-bold mb-6 sm:mb-8 gold-accent"
                     >
                         Huy & Ý
                     </motion.p>
@@ -237,7 +237,7 @@ function App() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.7 }}
-                        className="mt-8 text-lg md:text-xl text-wedding-blue-100 font-light"
+                        className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-wedding-blue-100 font-light px-4"
                     >
                         Cùng nhau lưu giữ những khoảnh khắc đẹp nhất
                     </motion.p>
@@ -262,8 +262,12 @@ function App() {
                             <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 rounded-full mb-4">
                                 <LogIn size={28} className="text-wedding-blue-600" />
                             </div>
-                            <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 mb-2">Đăng nhập Admin</h3>
-                            <p className="text-wedding-blue-600">Nhập mật khẩu để quản lý thư viện</p>
+                            <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 mb-2">
+                                Đăng nhập Admin
+                            </h3>
+                            <p className="text-wedding-blue-600">
+                                Nhập mật khẩu để quản lý thư viện
+                            </p>
                         </div>
 
                         <input
@@ -271,7 +275,7 @@ function App() {
                             placeholder="Nhập mật khẩu admin"
                             value={adminPassword}
                             onChange={(e) => setAdminPassword(e.target.value)}
-                            className="w-full px-6 py-4 border-2 border-wedding-blue-200 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500 text-lg transition-all"
+                            className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-wedding-blue-200 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500 text-base sm:text-lg transition-all"
                             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                         />
 
@@ -427,9 +431,9 @@ function App() {
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setSelectedCategory('ảnh check-in')}
-                                    className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${selectedCategory === 'ảnh check-in'
-                                            ? 'wedding-gradient text-white shadow-wedding-lg'
-                                            : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                    className={`px-6 py-3 sm:px-8 sm:py-4 rounded-full font-semibold transition-all duration-300 ${selectedCategory === 'ảnh check-in'
+                                        ? 'wedding-gradient text-white shadow-wedding-lg'
+                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
                                         }`}
                                 >
                                     <div className="flex items-center gap-2">
@@ -441,9 +445,9 @@ function App() {
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setSelectedCategory('ảnh từng bàn')}
-                                    className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${selectedCategory === 'ảnh từng bàn'
-                                            ? 'wedding-gradient text-white shadow-wedding-lg'
-                                            : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                    className={`px-6 py-3 sm:px-8 sm:py-4 rounded-full font-semibold transition-all duration-300 ${selectedCategory === 'ảnh từng bàn'
+                                        ? 'wedding-gradient text-white shadow-wedding-lg'
+                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
                                         }`}
                                 >
                                     <div className="flex items-center gap-2">
@@ -461,7 +465,7 @@ function App() {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             className={`
-                inline-flex items-center gap-3 px-10 py-5 rounded-full font-bold text-lg transition-all cursor-pointer shadow-wedding-lg
+                inline-flex items-center gap-2 sm:gap-3 px-6 py-4 sm:px-10 sm:py-5 rounded-full font-bold text-base sm:text-lg transition-all cursor-pointer shadow-wedding-lg
                 ${loading
                                     ? 'bg-gray-400 cursor-not-allowed'
                                     : 'wedding-gradient text-white hover:shadow-wedding-lg active:scale-95 border-2 border-wedding-blue-300'
@@ -535,7 +539,7 @@ function App() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={generateQRCode}
-                        className="inline-flex items-center gap-3 wedding-gradient text-white px-8 py-4 rounded-full font-bold shadow-wedding-lg hover:shadow-wedding-lg transition-all duration-300 border-2 border-wedding-blue-300"
+                        className="inline-flex items-center gap-2 sm:gap-3 wedding-gradient text-white px-6 py-3 sm:px-8 sm:py-4 rounded-full font-bold shadow-wedding-lg hover:shadow-wedding-lg transition-all duration-300 border-2 border-wedding-blue-300 text-base sm:text-base"
                     >
                         <Share2 size={20} />
                         <span>Chia sẻ Gallery</span>
@@ -555,9 +559,9 @@ function App() {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setFilterCategory('tất cả')}
-                            className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${filterCategory === 'tất cả'
-                                    ? 'wedding-gradient text-white shadow-wedding-lg'
-                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                            className={`px-4 py-2 sm:px-6 sm:py-3 rounded-full font-semibold transition-all duration-300 text-sm sm:text-base ${filterCategory === 'tất cả'
+                                ? 'wedding-gradient text-white shadow-wedding-lg'
+                                : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -569,9 +573,9 @@ function App() {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setFilterCategory('ảnh check-in')}
-                            className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${filterCategory === 'ảnh check-in'
-                                    ? 'wedding-gradient text-white shadow-wedding-lg'
-                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                            className={`px-4 py-2 sm:px-6 sm:py-3 rounded-full font-semibold transition-all duration-300 text-sm sm:text-base ${filterCategory === 'ảnh check-in'
+                                ? 'wedding-gradient text-white shadow-wedding-lg'
+                                : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -583,9 +587,9 @@ function App() {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setFilterCategory('ảnh từng bàn')}
-                            className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${filterCategory === 'ảnh từng bàn'
-                                    ? 'wedding-gradient text-white shadow-wedding-lg'
-                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                            className={`px-4 py-2 sm:px-6 sm:py-3 rounded-full font-semibold transition-all duration-300 text-sm sm:text-base ${filterCategory === 'ảnh từng bàn'
+                                ? 'wedding-gradient text-white shadow-wedding-lg'
+                                : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -596,7 +600,7 @@ function App() {
                     </div>
                 </motion.div>
 
-                <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-8 space-y-8">
+                <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 lg:gap-8 space-y-4 sm:space-y-6 lg:space-y-8">
                     <AnimatePresence>
                         {photos
                             .filter(photo => filterCategory === 'tất cả' || photo.category === filterCategory)
@@ -607,7 +611,7 @@ function App() {
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.8 }}
                                     transition={{ delay: index * 0.1, duration: 0.5 }}
-                                    className="relative group break-inside-avoid rounded-3xl overflow-hidden shadow-wedding wedding-card border-2 border-transparent hover:border-wedding-blue-200 transition-all duration-500 gallery-item fade-in-up"
+                                    className="relative group break-inside-avoid rounded-2xl sm:rounded-3xl overflow-hidden shadow-wedding wedding-card border-2 border-transparent hover:border-wedding-blue-200 transition-all duration-500 gallery-item fade-in-up"
                                 >
                                     <div className="relative">
                                         <img
@@ -622,7 +626,7 @@ function App() {
                                     </div>
 
                                     {/* Enhanced Overlay on Hover */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-wedding-blue-950/90 via-wedding-blue-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-between p-6">
+                                    <div className="absolute inset-0 bg-gradient-to-t from-wedding-blue-950/90 via-wedding-blue-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-between p-3 sm:p-4 lg:p-6">
                                         <div className="flex justify-end">
                                             <div className="flex items-center gap-1">
                                                 {[...Array(5)].map((_, i) => (
@@ -641,9 +645,9 @@ function App() {
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
                                                 onClick={() => handleLike(photo._id)}
-                                                className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-6 py-3 rounded-full text-wedding-blue-900 hover:bg-red-500 hover:text-white transition-all duration-300 shadow-lg"
+                                                className="flex items-center gap-1 sm:gap-2 bg-white/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-wedding-blue-900 hover:bg-red-500 hover:text-white transition-all duration-300 shadow-lg text-xs sm:text-sm"
                                             >
-                                                <Heart size={20} className={photo.likes > 0 ? "text-red-500 fill-current heartbeat" : ""} />
+                                                <Heart size={16} className={photo.likes > 0 ? "text-red-500 fill-current heartbeat" : ""} />
                                                 <span className="font-bold">{photo.likes}</span>
                                             </motion.button>
 
@@ -652,10 +656,10 @@ function App() {
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
                                                     onClick={() => handleDelete(photo._id)}
-                                                    className="flex items-center gap-2 bg-red-500/90 backdrop-blur-md px-6 py-3 rounded-full text-white hover:bg-red-600 transition-all duration-300 shadow-lg"
+                                                    className="flex items-center gap-1 sm:gap-2 bg-red-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-red-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
                                                 >
-                                                    <Trash2 size={20} />
-                                                    <span className="font-bold">Xóa</span>
+                                                    <Trash2 size={16} />
+                                                    <span className="font-bold hidden sm:inline">Xóa</span>
                                                 </motion.button>
                                             )}
                                         </div>

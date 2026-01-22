@@ -269,11 +269,56 @@
     /* Enhanced gallery animations */
     .gallery-item {
         transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Touch-friendly tap target size */
+        min-height: 44px;
     }
 
     .gallery-item:hover {
         transform: translateY(-8px) scale(1.02);
         box-shadow: 0 20px 40px rgba(2, 132, 199, 0.3);
+    }
+
+    /* Touch-friendly interactions */
+    @media (hover: none) {
+        .gallery-item:active {
+            transform: scale(0.98);
+            transition: transform 0.1s ease;
+        }
+        
+        .gallery-image:active {
+            transform: scale(0.95);
+            transition: transform 0.1s ease;
+        }
+    }
+
+    /* Mobile-specific optimizations */
+    @media (max-width: 640px) {
+        /* Larger touch targets on mobile */
+        button, .btn-primary, .btn-secondary {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        /* Better spacing for mobile */
+        .wedding-card {
+            margin: 0.5rem;
+        }
+        
+        /* Optimize animations for mobile performance */
+        .floating-hearts {
+            display: none;
+        }
+        
+        /* Simplified animations on mobile */
+        .gallery-item {
+            transition: transform 0.2s ease;
+        }
+        
+        /* Better text readability on mobile */
+        body {
+            font-size: 16px;
+            line-height: 1.5;
+        }
     }
 
     /* Loading animations */
