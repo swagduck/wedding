@@ -15,8 +15,10 @@ function App() {
     const [showLogin, setShowLogin] = useState(false);
     const [showQRCode, setShowQRCode] = useState(false);
     const [qrCodeUrl, setQrCodeUrl] = useState('');
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [selectedCategory, setSelectedCategory] = useState('ảnh check-in');
     const [filterCategory, setFilterCategory] = useState('tất cả');
+    const [multipleFiles, setMultipleFiles] = useState([]);
 
     useEffect(() => {
         fetchPhotos();
@@ -36,27 +38,125 @@ function App() {
         }
     };
 
+    const compressImage = async (file) => {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = () => {
+                // Calculate new dimensions (max 1920px for width/height)
+                const MAX_WIDTH = 1920;
+                const MAX_HEIGHT = 1920;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Draw and compress image
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    resolve(blob);
+                }, 'image/jpeg', 0.8); // 80% quality
+            };
+
+            img.src = URL.createObjectURL(file);
+        });
+    };
+
+    const handleMultipleUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        if (!files || files.length === 0) return;
+
+        setLoading(true);
+        setMultipleFiles(files);
+
+        try {
+            const uploadPromises = files.map(async (file, index) => {
+                const compressedFile = await compressImage(file);
+
+                const formData = new FormData();
+                formData.append('image', compressedFile, file.name);
+                formData.append('category', selectedCategory);
+
+                return axios.post(`${API_URL}/upload`, formData, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round(
+                            (progressEvent.loaded * 100) / progressEvent.total
+                        );
+                        // Update progress for current file
+                        setUploadProgress(Math.round((index * 100 + percentCompleted) / files.length));
+                    }
+                });
+            });
+
+            await Promise.all(uploadPromises);
+
+            toast.success(`Đã tải thành công ${files.length} ảnh!`);
+            fetchPhotos();
+        } catch (err) {
+            toast.error("Tải ảnh thất bại! Bạn cần quyền admin.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+            setUploadProgress(0);
+            setMultipleFiles([]);
+        }
+    };
+
     const handleUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('category', selectedCategory);
-
         setLoading(true);
+
         try {
+            // Compress image before upload
+            const compressedFile = await compressImage(file);
+
+            const formData = new FormData();
+            formData.append('image', compressedFile, file.name);
+            formData.append('category', selectedCategory);
+
             await axios.post(`${API_URL}/upload`, formData, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+                    'Content-Type': 'multipart/form-data'
+                },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round(
+                        (progressEvent.loaded * 100) / progressEvent.total
+                    );
+                    setUploadProgress(percentCompleted);
                 }
             });
+
             toast.success("Tải ảnh thành công!");
             fetchPhotos();
         } catch (err) {
             toast.error("Tải ảnh thất bại! Bạn cần quyền admin.");
+            console.error(err);
         } finally {
             setLoading(false);
+            setUploadProgress(0);
         }
     };
 
@@ -492,6 +592,58 @@ function App() {
                                 accept="image/*"
                             />
                         </motion.label>
+
+                        {/* Multiple Upload Button */}
+                        <motion.label
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`
+                inline-flex items-center gap-2 sm:gap-3 px-6 py-4 sm:px-10 sm:py-5 rounded-full font-bold text-base sm:text-lg transition-all cursor-pointer shadow-wedding-lg mt-4
+                ${loading
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-wedding-gold-500 text-white hover:bg-wedding-gold-600 active:scale-95 border-2 border-wedding-gold-300'
+                                }
+              `}
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="animate-spin" size={28} />
+                                    Đang xử lý nhiều ảnh...
+                                </>
+                            ) : (
+                                <>
+                                    <ImageIcon size={28} />
+                                    <span>Tải nhiều ảnh</span>
+                                    <Sparkles size={20} className="animate-pulse sparkle" />
+                                </>
+                            )}
+                            <input
+                                type="file"
+                                className="hidden"
+                                onChange={handleMultipleUpload}
+                                disabled={loading}
+                                accept="image/*"
+                                multiple
+                            />
+                        </motion.label>
+
+                        {/* Upload Progress Bar */}
+                        {loading && uploadProgress > 0 && (
+                            <div className="mt-6 max-w-md mx-auto">
+                                <div className="flex justify-between text-sm text-wedding-blue-600 mb-2">
+                                    <span>Đang tải ảnh...</span>
+                                    <span>{uploadProgress}%</span>
+                                </div>
+                                <div className="w-full bg-wedding-blue-100 rounded-full h-3 overflow-hidden">
+                                    <motion.div
+                                        className="h-full wedding-gradient rounded-full transition-all duration-300 ease-out"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${uploadProgress}%` }}
+                                        style={{ minWidth: '2%' }}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <div className="mt-8 flex justify-center gap-8 text-wedding-blue-600">
                             <div className="flex items-center gap-2">

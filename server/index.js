@@ -61,6 +61,11 @@ const storage = new CloudinaryStorage({
   params: {
     folder: "wedding_album", // Tên thư mục lưu ảnh trên Cloudinary
     allowed_formats: ["jpg", "png", "jpeg", "webp"],
+    quality: "auto:good", // Tự động tối ưu chất lượng
+    fetch_format: "auto", // Tự động chọn định dạng tốt nhất
+    transformation: [
+      { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
+    ]
   },
 });
 
