@@ -16,6 +16,15 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // Cho phép Frontend truy cập API
 app.use(express.json()); // Đọc dữ liệu JSON từ request body
 
+// Set timeout for requests
+app.use((req, res, next) => {
+  res.setTimeout(10000, () => {
+    console.log('Request timeout');
+    res.status(408).send('Request timeout');
+  });
+  next();
+});
+
 // Authentication middleware
 const authenticateAdmin = (req, res, next) => {
   const { authorization } = req.headers;
@@ -48,6 +57,12 @@ const photoSchema = new mongoose.Schema({
 });
 
 const Photo = mongoose.model("Photo", photoSchema);
+
+// Create indexes for better performance
+Photo.createIndexes([
+  { _id: 1 }, // Default index but ensure it exists
+  { createdAt: -1 }, // For sorting
+]);
 
 // 5. Cấu hình Cloudinary & Multer (Xử lý file ảnh)
 cloudinary.config({
@@ -120,11 +135,17 @@ app.post("/api/upload", authenticateAdmin, upload.single("image"), async (req, r
 app.patch("/api/photos/:id/like", async (req, res) => {
   try {
     const { id } = req.params;
-    const photo = await Photo.findByIdAndUpdate(
-      id,
-      { $inc: { likes: 1 } }, // Tăng giá trị likes thêm 1
-      { new: true },
-    );
+    
+    // Use findOneAndUpdate with lean() for better performance
+    const photo = await Photo.findOneAndUpdate(
+      { _id: id },
+      { $inc: { likes: 1 } },
+      { 
+        new: true, 
+        lean: true, // Return plain JavaScript object for faster response
+        upsert: false 
+      }
+    ).select('_id url public_id category likes createdAt'); // Only select needed fields
 
     if (!photo) {
       return res.status(404).json({ message: "Không tìm thấy ảnh này." });
@@ -132,7 +153,8 @@ app.patch("/api/photos/:id/like", async (req, res) => {
 
     res.status(200).json(photo);
   } catch (error) {
-    res.status(500).json({ message: "Lỗi khi thả tim", error });
+    console.error('Like error:', error);
+    res.status(500).json({ message: "Lỗi khi thả tim" });
   }
 });
 

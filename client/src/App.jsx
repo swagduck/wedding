@@ -19,6 +19,7 @@ function App() {
     const [selectedCategory, setSelectedCategory] = useState('ảnh check-in');
     const [filterCategory, setFilterCategory] = useState('tất cả');
     const [multipleFiles, setMultipleFiles] = useState([]);
+    const [likingPhotoId, setLikingPhotoId] = useState(null);
 
     useEffect(() => {
         fetchPhotos();
@@ -161,11 +162,30 @@ function App() {
     };
 
     const handleLike = async (id) => {
+        // Prevent multiple clicks
+        if (likingPhotoId === id) return;
+
+        setLikingPhotoId(id);
+
+        // Optimistic update - immediately update UI
+        const previousPhotos = [...photos];
+        setPhotos(photos.map(p =>
+            p._id === id ? { ...p, likes: p.likes + 1 } : p
+        ));
+
         try {
             const res = await axios.patch(`${API_URL}/photos/${id}/like`);
-            setPhotos(photos.map(p => p._id === id ? res.data : p));
+            // Update with actual server response
+            setPhotos(prev => prev.map(p =>
+                p._id === id ? res.data : p
+            ));
         } catch (err) {
+            // Revert on error
+            setPhotos(previousPhotos);
+            toast.error("Không thể thả tim, vui lòng thử lại!");
             console.error(err);
+        } finally {
+            setLikingPhotoId(null);
         }
     };
 
@@ -822,9 +842,17 @@ function App() {
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
                                                 onClick={() => handleLike(photo._id)}
-                                                className="flex items-center gap-1 sm:gap-2 bg-white/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-wedding-blue-900 hover:bg-red-500 hover:text-white transition-all duration-300 shadow-lg text-xs sm:text-sm"
+                                                disabled={likingPhotoId === photo._id}
+                                                className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full transition-all duration-300 shadow-lg text-xs sm:text-sm ${likingPhotoId === photo._id
+                                                        ? 'bg-gray-300 cursor-not-allowed'
+                                                        : 'bg-white/90 backdrop-blur-md text-wedding-blue-900 hover:bg-red-500 hover:text-white'
+                                                    }`}
                                             >
-                                                <Heart size={16} className={photo.likes > 0 ? "text-red-500 fill-current heartbeat" : ""} />
+                                                {likingPhotoId === photo._id ? (
+                                                    <Loader2 size={16} className="animate-spin" />
+                                                ) : (
+                                                    <Heart size={16} className={photo.likes > 0 ? "text-red-500 fill-current heartbeat" : ""} />
+                                                )}
                                                 <span className="font-bold">{photo.likes}</span>
                                             </motion.button>
 
@@ -854,29 +882,31 @@ function App() {
                                 </motion.div>
                             ))}
                     </AnimatePresence>
-                </div>
+                </div >
 
-                {photos.length === 0 && !loading && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center py-32"
-                    >
-                        <div className="flex items-center justify-center w-32 h-32 bg-wedding-blue-100 rounded-full mb-8 pulse-glow mx-auto">
-                            <ImageIcon size={48} className="text-wedding-blue-400 floating" />
-                        </div>
-                        <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 mb-4 text-center">
-                            Chưa có tấm ảnh nào
-                        </h3>
-                        <p className="text-xl text-wedding-blue-700 mb-2 text-center">
-                            Hãy là người đầu tiên chia sẻ khoảnh khắc đẹp nhất!
-                        </p>
-                        <p className="text-wedding-blue-600 font-dancing text-center">
-                            Mỗi tấm ảnh là một câu chuyện tình yêu
-                        </p>
-                    </motion.div>
-                )}
-            </main>
+                {
+                    photos.length === 0 && !loading && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-center py-32"
+                        >
+                            <div className="flex items-center justify-center w-32 h-32 bg-wedding-blue-100 rounded-full mb-8 pulse-glow mx-auto">
+                                <ImageIcon size={48} className="text-wedding-blue-400 floating" />
+                            </div>
+                            <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 mb-4 text-center">
+                                Chưa có tấm ảnh nào
+                            </h3>
+                            <p className="text-xl text-wedding-blue-700 mb-2 text-center">
+                                Hãy là người đầu tiên chia sẻ khoảnh khắc đẹp nhất!
+                            </p>
+                            <p className="text-wedding-blue-600 font-dancing text-center">
+                                Mỗi tấm ảnh là một câu chuyện tình yêu
+                            </p>
+                        </motion.div>
+                    )
+                }
+            </main >
 
             <footer className="relative bg-gradient-to-r from-wedding-blue-900 via-wedding-blue-800 to-wedding-blue-900 text-white py-16 mt-20 overflow-hidden">
                 {/* Decorative background */}
@@ -941,7 +971,7 @@ function App() {
                     </motion.p>
                 </div>
             </footer>
-        </div>
+        </div >
     );
 }
 
