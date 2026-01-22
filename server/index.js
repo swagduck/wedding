@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 // 1. Cấu hình Biến môi trường từ file .env
 dotenv.config();
@@ -15,6 +17,20 @@ const PORT = process.env.PORT || 5000;
 // 2. Middleware
 app.use(cors()); // Cho phép Frontend truy cập API
 app.use(express.json()); // Đọc dữ liệu JSON từ request body
+
+// Serve static files from frontend build
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Serve static files from client/dist in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(join(__dirname, '../client/dist')));
+  
+  // Handle client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile(join(__dirname, '../client/dist/index.html'));
+  });
+}
 
 // Authentication middleware
 const authenticateAdmin = (req, res, next) => {
