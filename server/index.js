@@ -42,26 +42,32 @@ mongoose
   .then(() => console.log("✅ Đã kết nối MongoDB thành công!"))
   .catch((err) => console.error("❌ Lỗi kết nối MongoDB:", err));
 
-// 4. Định nghĩa Schema & Model cho Hình ảnh
-const photoSchema = new mongoose.Schema({
+// 4. Định nghĩa Schema & Model cho Media (ảnh/video)
+const mediaSchema = new mongoose.Schema({
   url: { type: String, required: true },
   public_id: { type: String, required: true },
+  type: { 
+    type: String, 
+    required: true, 
+    enum: ['image', 'video'],
+    default: 'image'
+  },
   category: { 
     type: String, 
     required: true, 
-    enum: ['ảnh check-in', 'ảnh từng bàn'],
     default: 'ảnh check-in'
   },
   likes: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 
-const Photo = mongoose.model("Photo", photoSchema);
+const Media = mongoose.model("Media", mediaSchema);
 
 // Create indexes for better performance
-Photo.createIndexes([
+Media.createIndexes([
   { _id: 1 }, // Default index but ensure it exists
   { createdAt: -1 }, // For sorting
+  { type: 1, category: 1 }, // For filtering
 ]);
 
 // 5. Cấu hình Cloudinary & Multer (Xử lý file ảnh)
@@ -73,39 +79,75 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: "wedding_album", // Tên thư mục lưu ảnh trên Cloudinary
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
-    quality: "auto:good", // Tự động tối ưu chất lượng
-    fetch_format: "auto", // Tự động chọn định dạng tốt nhất
-    transformation: [
-      { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
-    ]
+  params: (req, file) => {
+    const isVideo = file.mimetype.startsWith('video/');
+    return {
+      folder: "wedding_album",
+      resource_type: isVideo ? 'video' : 'image',
+      allowed_formats: isVideo ? ['mp4', 'mov', 'avi', 'webm'] : ["jpg", "png", "jpeg", "webp"],
+      quality: isVideo ? "auto:good" : "auto:good",
+      fetch_format: "auto",
+      transformation: isVideo ? [] : [
+        { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
+      ]
+    };
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit for videos
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Chỉ chấp nhận ảnh (JPG, PNG, WebP) và video (MP4, MOV, AVI)'), false);
+    }
+  }
+});
 
 // 6. Định nghĩa các API Endpoints
 
 /**
- * @route   GET /api/photos
- * @desc    Lấy danh sách toàn bộ ảnh, ảnh mới nhất xếp trên đầu
+ * @route   GET /api/media
+ * @desc    Lấy danh sách toàn bộ media, mới nhất xếp trên đầu
  */
-app.get("/api/photos", async (req, res) => {
+app.get("/api/media", async (req, res) => {
   try {
-    const photos = await Photo.find().sort({ createdAt: -1 });
-    res.status(200).json(photos);
+    const { type, category } = req.query;
+    let filter = {};
+    
+    if (type) filter.type = type;
+    if (category) filter.category = category;
+    
+    const media = await Media.find(filter).sort({ createdAt: -1 });
+    res.status(200).json(media);
   } catch (error) {
-    res.status(500).json({ message: "Lỗi khi lấy danh sách ảnh", error });
+    res.status(500).json({ message: "Lỗi khi lấy danh sách media", error });
+  }
+});
+
+/**
+ * @route   GET /api/categories
+ * @desc    Lấy danh sách tất cả categories
+ */
+app.get("/api/categories", async (req, res) => {
+  try {
+    const categories = await Media.distinct('category');
+    res.status(200).json(categories);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi khi lấy danh sách categories", error });
   }
 });
 
 /**
  * @route   POST /api/upload
- * @desc    Nhận ảnh từ admin, đẩy lên Cloudinary, lưu URL vào MongoDB (Chỉ admin)
+ * @desc    Nhận media từ admin, đẩy lên Cloudinary, lưu URL vào MongoDB (Chỉ admin)
  */
-app.post("/api/upload", authenticateAdmin, upload.single("image"), async (req, res) => {
+app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, res) => {
   try {
     if (!req.file) {
       return res
@@ -113,45 +155,46 @@ app.post("/api/upload", authenticateAdmin, upload.single("image"), async (req, r
         .json({ message: "Không có file nào được tải lên." });
     }
 
-    const { category = 'ảnh check-in' } = req.body; // Get category from request body, default to 'ảnh check-in'
+    const { category = 'ảnh check-in' } = req.body;
+    const isVideo = req.file.mimetype.startsWith('video/');
 
-    const newPhoto = new Photo({
-      url: req.file.path, // URL ảnh từ Cloudinary
-      public_id: req.file.filename, // ID ảnh trên Cloudinary
-      category: category, // Danh mục ảnh
+    const newMedia = new Media({
+      url: req.file.path,
+      public_id: req.file.filename,
+      type: isVideo ? 'video' : 'image',
+      category: category,
     });
 
-    await newPhoto.save();
-    res.status(201).json(newPhoto);
+    await newMedia.save();
+    res.status(201).json(newMedia);
   } catch (error) {
     res.status(500).json({ message: "Lỗi trong quá trình upload", error });
   }
 });
 
 /**
- * @route   PATCH /api/photos/:id/like
- * @desc    Tăng số lượt thả tim cho một tấm ảnh
+ * @route   PATCH /api/media/:id/like
+ * @desc    Tăng số lượt thả tim cho một media
  */
-app.patch("/api/photos/:id/like", async (req, res) => {
+app.patch("/api/media/:id/like", async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Use findOneAndUpdate with lean() for better performance
-    const photo = await Photo.findOneAndUpdate(
+    const media = await Media.findOneAndUpdate(
       { _id: id },
       { $inc: { likes: 1 } },
       { 
         new: true, 
-        lean: true, // Return plain JavaScript object for faster response
+        lean: true,
         upsert: false 
       }
-    ).select('_id url public_id category likes createdAt'); // Only select needed fields
+    ).select('_id url public_id type category likes createdAt');
 
-    if (!photo) {
-      return res.status(404).json({ message: "Không tìm thấy ảnh này." });
+    if (!media) {
+      return res.status(404).json({ message: "Không tìm thấy media này." });
     }
 
-    res.status(200).json(photo);
+    res.status(200).json(media);
   } catch (error) {
     console.error('Like error:', error);
     res.status(500).json({ message: "Lỗi khi thả tim" });
@@ -159,28 +202,28 @@ app.patch("/api/photos/:id/like", async (req, res) => {
 });
 
 /**
- * @route   DELETE /api/photos/:id
- * @desc    Xóa ảnh khỏi MongoDB và Cloudinary (Chỉ admin)
+ * @route   DELETE /api/media/:id
+ * @desc    Xóa media khỏi MongoDB và Cloudinary (Chỉ admin)
  */
-app.delete("/api/photos/:id", authenticateAdmin, async (req, res) => {
+app.delete("/api/media/:id", authenticateAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Tìm ảnh trong MongoDB
-    const photo = await Photo.findById(id);
-    if (!photo) {
-      return res.status(404).json({ message: "Không tìm thấy ảnh này." });
+    const media = await Media.findById(id);
+    if (!media) {
+      return res.status(404).json({ message: "Không tìm thấy media này." });
     }
 
-    // Xóa ảnh khỏi Cloudinary
-    await cloudinary.uploader.destroy(photo.public_id);
+    // Xóa media khỏi Cloudinary
+    const resourceType = media.type === 'video' ? 'video' : 'image';
+    await cloudinary.uploader.destroy(media.public_id, { resource_type: resourceType });
 
-    // Xóa ảnh khỏi MongoDB
-    await Photo.findByIdAndDelete(id);
+    // Xóa media khỏi MongoDB
+    await Media.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "Đã xóa ảnh thành công." });
+    res.status(200).json({ message: "Đã xóa media thành công." });
   } catch (error) {
-    res.status(500).json({ message: "Lỗi khi xóa ảnh", error });
+    res.status(500).json({ message: "Lỗi khi xóa media", error });
   }
 });
 

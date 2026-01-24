@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download } from 'lucide-react';
+import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -8,8 +8,13 @@ import QRCode from 'qrcode';
 const API_URL = 'https://wedding-f35z.onrender.com/api';
 
 function App() {
-    const [photos, setPhotos] = useState([]);
+    const [media, setMedia] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [filterType, setFilterType] = useState('tất cả');
+    const [filterCategory, setFilterCategory] = useState('tất cả');
+    const [showAddCategory, setShowAddCategory] = useState(false);
+    const [newCategory, setNewCategory] = useState('');
     const [isAdmin, setIsAdmin] = useState(false);
     const [adminPassword, setAdminPassword] = useState('');
     const [showLogin, setShowLogin] = useState(false);
@@ -17,13 +22,13 @@ function App() {
     const [qrCodeUrl, setQrCodeUrl] = useState('');
     const [uploadProgress, setUploadProgress] = useState(0);
     const [selectedCategory, setSelectedCategory] = useState('ảnh check-in');
-    const [filterCategory, setFilterCategory] = useState('tất cả');
     const [multipleFiles, setMultipleFiles] = useState([]);
     const [likingPhotoId, setLikingPhotoId] = useState(null);
     const [zoomedImage, setZoomedImage] = useState(null);
 
     useEffect(() => {
-        fetchPhotos();
+        fetchMedia();
+        fetchCategories();
         // Check if admin token exists in localStorage
         const token = localStorage.getItem('adminToken');
         if (token === 'huy&y2026') {
@@ -31,14 +36,31 @@ function App() {
         }
     }, []);
 
-    const fetchPhotos = async () => {
+    const fetchMedia = async () => {
         try {
-            const res = await axios.get(`${API_URL}/photos`);
-            setPhotos(res.data);
+            const params = new URLSearchParams();
+            if (filterType !== 'tất cả') params.append('type', filterType);
+            if (filterCategory !== 'tất cả') params.append('category', filterCategory);
+
+            const res = await axios.get(`${API_URL}/media?${params}`);
+            setMedia(res.data);
         } catch (err) {
-            toast.error("Không thể tải ảnh!");
+            toast.error("Không thể tải media!");
         }
     };
+
+    const fetchCategories = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/categories`);
+            setCategories(res.data);
+        } catch (err) {
+            toast.error("Không thể tải danh mục!");
+        }
+    };
+
+    useEffect(() => {
+        fetchMedia();
+    }, [filterType, filterCategory]);
 
     const compressImage = async (file) => {
         return new Promise((resolve) => {
@@ -89,10 +111,15 @@ function App() {
 
         try {
             const uploadPromises = files.map(async (file, index) => {
-                const compressedFile = await compressImage(file);
+                let processedFile = file;
+
+                // Only compress images, not videos
+                if (file.type.startsWith('image/')) {
+                    processedFile = await compressImage(file);
+                }
 
                 const formData = new FormData();
-                formData.append('image', compressedFile, file.name);
+                formData.append('media', processedFile, file.name);
                 formData.append('category', selectedCategory);
 
                 return axios.post(`${API_URL}/upload`, formData, {
@@ -104,7 +131,6 @@ function App() {
                         const percentCompleted = Math.round(
                             (progressEvent.loaded * 100) / progressEvent.total
                         );
-                        // Update progress for current file
                         setUploadProgress(Math.round((index * 100 + percentCompleted) / files.length));
                     }
                 });
@@ -112,10 +138,10 @@ function App() {
 
             await Promise.all(uploadPromises);
 
-            toast.success(`Đã tải thành công ${files.length} ảnh!`);
-            fetchPhotos();
+            toast.success(`Đã tải thành công ${files.length} media!`);
+            fetchMedia();
         } catch (err) {
-            toast.error("Tải ảnh thất bại! Bạn cần quyền admin.");
+            toast.error("Tải media thất bại! Bạn cần quyền admin.");
             console.error(err);
         } finally {
             setLoading(false);
@@ -131,11 +157,15 @@ function App() {
         setLoading(true);
 
         try {
-            // Compress image before upload
-            const compressedFile = await compressImage(file);
+            let processedFile = file;
+
+            // Only compress images, not videos
+            if (file.type.startsWith('image/')) {
+                processedFile = await compressImage(file);
+            }
 
             const formData = new FormData();
-            formData.append('image', compressedFile, file.name);
+            formData.append('media', processedFile, file.name);
             formData.append('category', selectedCategory);
 
             await axios.post(`${API_URL}/upload`, formData, {
@@ -151,10 +181,10 @@ function App() {
                 }
             });
 
-            toast.success("Tải ảnh thành công!");
-            fetchPhotos();
+            toast.success("Tải media thành công!");
+            fetchMedia();
         } catch (err) {
-            toast.error("Tải ảnh thất bại! Bạn cần quyền admin.");
+            toast.error("Tải media thất bại! Bạn cần quyền admin.");
             console.error(err);
         } finally {
             setLoading(false);
@@ -163,26 +193,22 @@ function App() {
     };
 
     const handleLike = async (id) => {
-        // Prevent multiple clicks
         if (likingPhotoId === id) return;
 
         setLikingPhotoId(id);
 
-        // Optimistic update - immediately update UI
-        const previousPhotos = [...photos];
-        setPhotos(photos.map(p =>
-            p._id === id ? { ...p, likes: p.likes + 1 } : p
+        const previousMedia = [...media];
+        setMedia(media.map(m =>
+            m._id === id ? { ...m, likes: m.likes + 1 } : m
         ));
 
         try {
-            const res = await axios.patch(`${API_URL}/photos/${id}/like`);
-            // Update with actual server response
-            setPhotos(prev => prev.map(p =>
-                p._id === id ? res.data : p
+            const res = await axios.patch(`${API_URL}/media/${id}/like`);
+            setMedia(prev => prev.map(m =>
+                m._id === id ? res.data : m
             ));
         } catch (err) {
-            // Revert on error
-            setPhotos(previousPhotos);
+            setMedia(previousMedia);
             toast.error("Không thể thả tim, vui lòng thử lại!");
             console.error(err);
         } finally {
@@ -191,20 +217,20 @@ function App() {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa ảnh này?")) {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa media này?")) {
             return;
         }
 
         try {
-            await axios.delete(`${API_URL}/photos/${id}`, {
+            await axios.delete(`${API_URL}/media/${id}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
                 }
             });
-            toast.success("Đã xóa ảnh thành công!");
-            setPhotos(photos.filter(p => p._id !== id));
+            toast.success("Đã xóa media thành công!");
+            setMedia(media.filter(m => m._id !== id));
         } catch (err) {
-            toast.error("Xóa ảnh thất bại! Bạn cần quyền admin.");
+            toast.error("Xóa media thất bại! Bạn cần quyền admin.");
             console.error(err);
         }
     };
@@ -246,6 +272,26 @@ function App() {
         }
     };
 
+    const handleAddCategory = async () => {
+        if (!newCategory.trim()) {
+            toast.error('Vui lòng nhập tên danh mục!');
+            return;
+        }
+
+        try {
+            // For now, we'll just add it to the local state
+            // In a real implementation, you might want to save this to the backend
+            setCategories([...categories, newCategory.trim()]);
+            setSelectedCategory(newCategory.trim());
+            setNewCategory('');
+            setShowAddCategory(false);
+            toast.success('Đã thêm danh mục mới!');
+        } catch (err) {
+            toast.error('Không thể thêm danh mục!');
+            console.error(err);
+        }
+    };
+
     const downloadPhoto = async (photoUrl, photoId, category) => {
         try {
             // Fetch the image as a blob
@@ -283,43 +329,57 @@ function App() {
 
     return (
         <div className="min-h-screen relative overflow-hidden">
-            {/* Floating Hearts Background */}
+            {/* Enhanced Floating Background */}
             <div className="floating-hearts">
-                {[...Array(8)].map((_, i) => (
+                {[...Array(12)].map((_, i) => (
                     <Heart
-                        key={i}
+                        key={`heart-${i}`}
                         size={15 + Math.random() * 25}
                         className="heart"
                         style={{
                             left: `${Math.random() * 100}%`,
-                            animationDelay: `${Math.random() * 6}s`,
-                            animationDuration: `${4 + Math.random() * 4}s`
+                            animationDelay: `${Math.random() * 8}s`,
+                            animationDuration: `${6 + Math.random() * 6}s`
                         }}
                     />
                 ))}
-                {[...Array(4)].map((_, i) => (
+                {[...Array(6)].map((_, i) => (
                     <Star
                         key={`star-${i}`}
                         size={12 + Math.random() * 18}
                         className="heart sparkle"
                         style={{
                             left: `${Math.random() * 100}%`,
-                            animationDelay: `${Math.random() * 6}s`,
-                            animationDuration: `${3 + Math.random() * 3}s`,
-                            color: 'rgba(250, 204, 21, 0.4)'
+                            animationDuration: `${4 + Math.random() * 4}s`,
+                            color: 'rgba(2, 132, 199, 0.3)'
+                        }}
+                    />
+                ))}
+            </div>
+
+            {/* Floating Particles */}
+            <div className="floating-particles">
+                {[...Array(20)].map((_, i) => (
+                    <div
+                        key={`particle-${i}`}
+                        className="particle"
+                        style={{
+                            left: `${Math.random() * 100}%`,
+                            animationDelay: `${Math.random() * 15}s`,
+                            animationDuration: `${10 + Math.random() * 10}s`
                         }}
                     />
                 ))}
             </div>
 
             <Toaster position="top-center" />
-
-            {/* Hero Section */}
             <header className="relative h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center wedding-gradient text-white overflow-hidden">
                 {/* Decorative Elements */}
                 <div className="absolute inset-0">
                     <div className="absolute top-10 left-10 text-wedding-gold-300 animate-float floating">
-                        <Star size={30} fill="currentColor" className="sparkle" />
+                        <div>
+                            <Star size={30} fill="currentColor" className="sparkle" />
+                        </div>
                     </div>
                     <div className="absolute top-20 right-20 text-wedding-gold-300 animate-float" style={{ animationDelay: '1s' }}>
                         <Sparkles size={25} fill="currentColor" className="rotate-scale" />
@@ -406,404 +466,484 @@ function App() {
             </header>
 
             {/* Admin Login Modal */}
-            {showLogin && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="wedding-card rounded-3xl p-10 max-w-md w-full border border-wedding-blue-200"
-                    >
-                        <div className="text-center mb-8">
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 rounded-full mb-4">
-                                <LogIn size={28} className="text-wedding-blue-600" />
-                            </div>
-                            <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 mb-2">
-                                Đăng nhập Admin
-                            </h3>
-                            <p className="text-wedding-blue-600">
-                                Nhập mật khẩu để quản lý thư viện
-                            </p>
-                        </div>
-
-                        <input
-                            type="password"
-                            placeholder="Nhập mật khẩu admin"
-                            value={adminPassword}
-                            onChange={(e) => setAdminPassword(e.target.value)}
-                            className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-wedding-blue-200 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500 text-base sm:text-lg transition-all"
-                            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                        />
-
-                        <div className="flex gap-4">
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={handleLogin}
-                                className="flex-1 btn-primary"
-                            >
-                                Đăng nhập
-                            </motion.button>
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => {
-                                    setShowLogin(false);
-                                    setAdminPassword('');
-                                }}
-                                className="flex-1 btn-secondary"
-                            >
-                                Hủy
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
-
-            {/* QR Code Modal */}
-            {showQRCode && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        transition={{ duration: 0.3 }}
-                        className="wedding-card rounded-3xl p-10 max-w-md w-full border border-wedding-blue-200 relative"
-                    >
-                        {/* Close Button */}
-                        <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => setShowQRCode(false)}
-                            className="absolute top-6 right-6 w-10 h-10 bg-wedding-blue-100 rounded-full flex items-center justify-center hover:bg-wedding-blue-200 transition-colors"
+            {
+                showLogin && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="wedding-card rounded-3xl p-10 max-w-md w-full border border-wedding-blue-200"
                         >
-                            <X size={20} className="text-wedding-blue-600" />
-                        </motion.button>
-
-                        <div className="text-center mb-8">
-                            <div className="inline-flex items-center justify-center w-20 h-20 bg-wedding-blue-100 rounded-full mb-6 animate-pulse-slow pulse-glow">
-                                <Share2 size={36} className="text-wedding-blue-600" />
-                            </div>
-                            <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 mb-2">
-                                Chia sẻ <span className="gold-accent">Gallery</span>
-                            </h3>
-                            <p className="text-wedding-blue-600">
-                                Quét mã QR để truy cập thư viện ảnh cưới
-                            </p>
-                        </div>
-
-                        {/* QR Code Display */}
-                        <div className="flex justify-center mb-8">
-                            <div className="p-6 bg-white rounded-2xl shadow-lg border-2 border-wedding-gold-200">
-                                {qrCodeUrl ? (
-                                    <img
-                                        src={qrCodeUrl}
-                                        alt="QR Code"
-                                        className="w-64 h-64"
-                                    />
-                                ) : (
-                                    <div className="w-64 h-64 flex items-center justify-center">
-                                        <Loader2 className="animate-spin text-wedding-blue-600" size={32} />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* URL Display */}
-                        <div className="mb-6">
-                            <p className="text-sm text-wedding-blue-600 mb-2">Hoặc truy cập trực tiếp:</p>
-                            <div className="bg-wedding-blue-50 border-2 border-wedding-blue-200 rounded-xl p-3">
-                                <p className="text-sm text-wedding-blue-800 break-all font-mono">
-                                    {window.location.href}
+                            <div className="text-center mb-8">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 rounded-full mb-4">
+                                    <LogIn size={28} className="text-wedding-blue-600" />
+                                </div>
+                                <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 mb-2">
+                                    Đăng nhập Admin
+                                </h3>
+                                <p className="text-wedding-blue-600">
+                                    Nhập mật khẩu để quản lý thư viện
                                 </p>
                             </div>
-                        </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex gap-4">
+                            <input
+                                type="password"
+                                placeholder="Nhập mật khẩu admin"
+                                value={adminPassword}
+                                onChange={(e) => setAdminPassword(e.target.value)}
+                                className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-wedding-blue-200 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500 text-base sm:text-lg transition-all"
+                                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                            />
+
+                            <div className="flex gap-4">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={handleLogin}
+                                    className="flex-1 btn-primary"
+                                >
+                                    Đăng nhập
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => {
+                                        setShowLogin(false);
+                                        setAdminPassword('');
+                                    }}
+                                    className="flex-1 btn-secondary"
+                                >
+                                    Hủy
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )
+            }
+
+            {/* Add Category Modal */}
+            {
+                showAddCategory && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="wedding-card rounded-3xl p-8 max-w-md w-full border border-wedding-blue-200"
+                        >
+                            <div className="text-center mb-6">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 rounded-full mb-4">
+                                    <Plus size={28} className="text-wedding-blue-600" />
+                                </div>
+                                <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 mb-2">
+                                    Thêm danh mục mới
+                                </h3>
+                                <p className="text-wedding-blue-600">
+                                    Tạo danh mục media mới cho gallery
+                                </p>
+                            </div>
+
+                            <input
+                                type="text"
+                                placeholder="Nhập tên danh mục mới"
+                                value={newCategory}
+                                onChange={(e) => setNewCategory(e.target.value)}
+                                className="w-full px-4 py-3 border-2 border-wedding-blue-200 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500"
+                                onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+                            />
+
+                            <div className="flex gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={handleAddCategory}
+                                    disabled={!newCategory.trim()}
+                                    className="flex-1 btn-primary disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                >
+                                    Thêm danh mục
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => {
+                                        setShowAddCategory(false);
+                                        setNewCategory('');
+                                    }}
+                                    className="flex-1 btn-secondary"
+                                >
+                                    Hủy
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )
+            }
+            {
+                showQRCode && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            transition={{ duration: 0.3 }}
+                            className="wedding-card rounded-3xl p-10 max-w-md w-full border border-wedding-blue-200 relative"
+                        >
+                            {/* Close Button */}
                             <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => {
-                                    navigator.clipboard.writeText(window.location.href);
-                                    toast.success("Đã sao chép đường link!");
-                                }}
-                                className="flex-1 btn-primary"
-                            >
-                                Sao chép link
-                            </motion.button>
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
                                 onClick={() => setShowQRCode(false)}
-                                className="flex-1 btn-secondary"
+                                className="absolute top-6 right-6 w-10 h-10 bg-wedding-blue-100 rounded-full flex items-center justify-center hover:bg-wedding-blue-200 transition-colors"
                             >
-                                Đóng
+                                <X size={20} className="text-wedding-blue-600" />
                             </motion.button>
-                        </div>
 
-                        {/* Decorative Elements */}
-                        <div className="absolute -top-4 -left-4 text-wedding-gold-400 animate-pulse-slow">
-                            <Sparkles size={24} fill="currentColor" className="sparkle" />
-                        </div>
-                        <div className="absolute -bottom-4 -right-4 text-wedding-gold-400 animate-pulse-slow" style={{ animationDelay: '1s' }}>
-                            <Star size={20} fill="currentColor" className="wiggle" />
-                        </div>
-                    </motion.div>
-                </div>
-            )}
+                            <div className="text-center mb-8">
+                                <div className="inline-flex items-center justify-center w-20 h-20 bg-wedding-blue-100 rounded-full mb-6 animate-pulse-slow pulse-glow">
+                                    <Share2 size={36} className="text-wedding-blue-600" />
+                                </div>
+                                <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 mb-2">
+                                    Chia sẻ <span className="gold-accent">Gallery</span>
+                                </h3>
+                                <p className="text-wedding-blue-600">
+                                    Quét mã QR để truy cập thư viện ảnh cưới
+                                </p>
+                            </div>
+
+                            {/* QR Code Display */}
+                            <div className="flex justify-center mb-8">
+                                <div className="p-6 bg-white rounded-2xl shadow-lg border-2 border-wedding-gold-200">
+                                    {qrCodeUrl ? (
+                                        <img
+                                            src={qrCodeUrl}
+                                            alt="QR Code"
+                                            className="w-64 h-64"
+                                        />
+                                    ) : (
+                                        <div className="w-64 h-64 flex items-center justify-center">
+                                            <Loader2 className="animate-spin text-wedding-blue-600" size={32} />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* URL Display */}
+                            <div className="mb-6">
+                                <p className="text-sm text-wedding-blue-600 mb-2">Hoặc truy cập trực tiếp:</p>
+                                <div className="bg-wedding-blue-50 border-2 border-wedding-blue-200 rounded-xl p-3">
+                                    <p className="text-sm text-wedding-blue-800 break-all font-mono">
+                                        {window.location.href}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-4">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(window.location.href);
+                                        toast.success("Đã sao chép đường link!");
+                                    }}
+                                    className="flex-1 btn-primary"
+                                >
+                                    Sao chép link
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setShowQRCode(false)}
+                                    className="flex-1 btn-secondary"
+                                >
+                                    Đóng
+                                </motion.button>
+                            </div>
+
+                            {/* Decorative Elements */}
+                            <div className="absolute -top-4 -left-4 text-wedding-gold-400 animate-pulse-slow">
+                                <Sparkles size={24} fill="currentColor" className="sparkle" />
+                            </div>
+                            <div className="absolute -bottom-4 -right-4 text-wedding-gold-400 animate-pulse-slow" style={{ animationDelay: '1s' }}>
+                                <Star size={20} fill="currentColor" className="wiggle" />
+                            </div>
+                        </motion.div>
+                    </div>
+                )
+            }
 
             {/* Upload Section - Admin Only */}
-            {isAdmin && (
-                <section className="max-w-5xl mx-auto -mt-16 px-4 relative z-20">
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="wedding-card rounded-3xl shadow-wedding-lg p-10 text-center"
-                    >
-                        <div className="mb-8">
-                            <div className="inline-flex items-center justify-center w-20 h-20 bg-wedding-blue-100 rounded-full mb-6 animate-pulse-slow pulse-glow">
-                                <Camera size={36} className="text-wedding-blue-600 heartbeat" />
-                            </div>
-                            <h2 className="text-4xl font-playfair font-bold text-wedding-blue-900 mb-4">
-                                Admin: <span className="gold-accent">Tải ảnh lên</span>
-                            </h2>
-                            <p className="text-xl text-wedding-blue-700 mb-2">
-                                Chỉ admin mới có thể tải ảnh lên thư viện
-                            </p>
-                            <p className="text-wedding-blue-600 font-dancing text-xl sm:text-2xl md:text-3xl">
-                                Quản lý khoảnh khắc đẹp nhất của đám cưới
-                            </p>
-                        </div>
-
-                        {/* Category Selection */}
-                        <div className="mb-8">
-                            <label className="block text-wedding-blue-800 font-semibold mb-4 text-lg">
-                                Chọn danh mục ảnh:
-                            </label>
-                            <div className="flex justify-center gap-4">
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => setSelectedCategory('ảnh check-in')}
-                                    className={`px-6 py-3 sm:px-8 sm:py-4 rounded-full font-semibold transition-all duration-300 ${selectedCategory === 'ảnh check-in'
-                                        ? 'wedding-gradient text-white shadow-wedding-lg'
-                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <Camera size={18} />
-                                        <span>Ảnh check-in</span>
-                                    </div>
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => setSelectedCategory('ảnh từng bàn')}
-                                    className={`px-6 py-3 sm:px-8 sm:py-4 rounded-full font-semibold transition-all duration-300 ${selectedCategory === 'ảnh từng bàn'
-                                        ? 'wedding-gradient text-white shadow-wedding-lg'
-                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <ImageIcon size={18} />
-                                        <span>Ảnh từng bàn</span>
-                                    </div>
-                                </motion.button>
-                            </div>
-                            <p className="mt-3 text-sm text-wedding-blue-600">
-                                Đã chọn: <span className="font-semibold text-wedding-blue-800">{selectedCategory}</span>
-                            </p>
-                        </div>
-
-                        <motion.label
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className={`
-                inline-flex items-center gap-2 sm:gap-3 px-6 py-4 sm:px-10 sm:py-5 rounded-full font-bold text-base sm:text-lg transition-all cursor-pointer shadow-wedding-lg
-                ${loading
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'wedding-gradient text-white hover:shadow-wedding-lg active:scale-95 border-2 border-wedding-blue-300'
-                                }
-              `}
+            {
+                isAdmin && (
+                    <section className="max-w-5xl mx-auto -mt-16 px-4 relative z-20">
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="wedding-card rounded-3xl shadow-wedding-lg p-10 text-center"
                         >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="animate-spin" size={28} />
-                                    Đang gửi ảnh...
-                                </>
-                            ) : (
-                                <>
-                                    <Camera size={28} />
-                                    <span>Tải ảnh lên ngay</span>
-                                    <Sparkles size={20} className="animate-pulse sparkle" />
-                                </>
-                            )}
-                            <input
-                                type="file"
-                                className="hidden"
-                                onChange={handleUpload}
-                                disabled={loading}
-                                accept="image/*"
-                            />
-                        </motion.label>
-
-                        {/* Multiple Upload Button */}
-                        <motion.label
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className={`
-                inline-flex items-center gap-2 sm:gap-3 px-6 py-4 sm:px-10 sm:py-5 rounded-full font-bold text-base sm:text-lg transition-all cursor-pointer shadow-wedding-lg mt-4
-                ${loading
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-wedding-gold-500 text-white hover:bg-wedding-gold-600 active:scale-95 border-2 border-wedding-gold-300'
-                                }
-              `}
-                        >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="animate-spin" size={28} />
-                                    Đang xử lý nhiều ảnh...
-                                </>
-                            ) : (
-                                <>
-                                    <ImageIcon size={28} />
-                                    <span>Tải nhiều ảnh</span>
-                                    <Sparkles size={20} className="animate-pulse sparkle" />
-                                </>
-                            )}
-                            <input
-                                type="file"
-                                className="hidden"
-                                onChange={handleMultipleUpload}
-                                disabled={loading}
-                                accept="image/*"
-                                multiple
-                            />
-                        </motion.label>
-
-                        {/* Upload Progress Bar */}
-                        {loading && uploadProgress > 0 && (
-                            <div className="mt-6 max-w-md mx-auto">
-                                <div className="flex justify-between text-sm text-wedding-blue-600 mb-2">
-                                    <span>Đang tải ảnh...</span>
-                                    <span>{uploadProgress}%</span>
+                            <div className="mb-8">
+                                <div className="inline-flex items-center justify-center w-20 h-20 bg-wedding-blue-100 rounded-full mb-6 animate-pulse-slow pulse-glow">
+                                    <Camera size={36} className="text-wedding-blue-600 heartbeat" />
                                 </div>
-                                <div className="w-full bg-wedding-blue-100 rounded-full h-3 overflow-hidden">
-                                    <motion.div
-                                        className="h-full wedding-gradient rounded-full transition-all duration-300 ease-out"
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${uploadProgress}%` }}
-                                        style={{ minWidth: '2%' }}
-                                    />
-                                </div>
+                                <h2 className="text-4xl font-playfair font-bold text-wedding-blue-900 mb-4">
+                                    Admin: <span className="gold-accent">Tải ảnh lên</span>
+                                </h2>
+                                <p className="text-xl text-wedding-blue-700 mb-2">
+                                    Chỉ admin mới có thể tải ảnh lên thư viện
+                                </p>
+                                <p className="text-wedding-blue-600 font-dancing text-xl sm:text-2xl md:text-3xl">
+                                    Quản lý khoảnh khắc đẹp nhất của đám cưới
+                                </p>
                             </div>
-                        )}
 
-                        <div className="mt-8 flex justify-center gap-8 text-wedding-blue-600">
-                            <div className="flex items-center gap-2">
-                                <Heart size={16} className="text-red-400 fill-current animate-pulse heartbeat" />
-                                <span className="text-sm">Yêu thương</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Star size={16} className="gold-accent fill-current wiggle" />
-                                <span className="text-sm">Hạnh phúc</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Flower size={16} className="text-pink-400 fill-current floating" />
-                                <span className="text-sm">Lãng mạn</span>
-                            </div>
-                        </div>
-                    </motion.div>
-                </section>
-            )}
-
-            {/* Image Zoom Modal */}
-            {zoomedImage && (
-                <div
-                    className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                    onClick={() => setZoomedImage(null)}
-                >
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.3 }}
-                        className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Close Button */}
-                        <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => setZoomedImage(null)}
-                            className="absolute top-4 right-4 z-10 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-                        >
-                            <X size={24} className="text-white" />
-                        </motion.button>
-
-                        {/* Image Container */}
-                        <div className="relative w-full h-full flex items-center justify-center">
-                            <img
-                                src={zoomedImage.url}
-                                alt="Wedding moment zoomed"
-                                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                            />
-
-                            {/* Image Info Overlay */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-4 text-white" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="text-sm opacity-90">Danh mục: {zoomedImage.category}</p>
-                                        <p className="text-xs opacity-75 mt-1">
-                                            {new Date(zoomedImage.createdAt).toLocaleDateString('vi-VN', {
-                                                day: '2-digit',
-                                                month: '2-digit',
-                                                year: 'numeric'
-                                            })}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
+                            {/* Category Selection with Dynamic Categories */}
+                            <div className="mb-8">
+                                <div className="flex justify-between items-center mb-4">
+                                    <label className="block text-wedding-blue-800 font-semibold text-lg">
+                                        Chọn danh mục media:
+                                    </label>
+                                    {isAdmin && (
                                         <motion.button
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleLike(zoomedImage._id);
-                                            }}
-                                            disabled={likingPhotoId === zoomedImage._id}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${likingPhotoId === zoomedImage._id
-                                                ? 'bg-gray-500 cursor-not-allowed'
-                                                : 'bg-white/20 backdrop-blur-md hover:bg-red-500 hover:text-white'
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setShowAddCategory(true)}
+                                            className="flex items-center gap-2 bg-wedding-gold-500 text-white px-3 py-1 rounded-full text-sm hover:bg-wedding-gold-600 transition-all"
+                                        >
+                                            <Plus size={14} />
+                                            <span>Thêm danh mục</span>
+                                        </motion.button>
+                                    )}
+                                </div>
+                                <div className="flex justify-center gap-3 flex-wrap">
+                                    {categories.map((category) => (
+                                        <motion.button
+                                            key={category}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setSelectedCategory(category)}
+                                            className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${selectedCategory === category
+                                                ? 'wedding-gradient text-white shadow-wedding-lg'
+                                                : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
                                                 }`}
                                         >
-                                            {likingPhotoId === zoomedImage._id ? (
-                                                <Loader2 size={16} className="animate-spin" />
-                                            ) : (
-                                                <Heart size={16} className={photos.find(p => p._id === zoomedImage._id)?.likes > 0 ? "text-red-400 fill-current" : ""} />
-                                            )}
-                                            <span className="font-bold">{photos.find(p => p._id === zoomedImage._id)?.likes || 0}</span>
+                                            {category}
                                         </motion.button>
+                                    ))}
+                                </div>
+                                <p className="mt-3 text-sm text-wedding-blue-600">
+                                    Đã chọn: <span className="font-semibold text-wedding-blue-800">{selectedCategory}</span>
+                                </p>
+                            </div>
 
-                                        <motion.button
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                downloadPhoto(zoomedImage.url, zoomedImage._id, zoomedImage.category);
-                                            }}
-                                            className="flex items-center gap-2 bg-wedding-gold-500/80 backdrop-blur-md px-4 py-2 rounded-full text-white hover:bg-wedding-gold-600 transition-all duration-300"
-                                        >
-                                            <Download size={16} />
-                                        </motion.button>
+                            <motion.label
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className={`
+                inline-flex items-center gap-2 sm:gap-3 px-6 py-4 sm:px-10 sm:py-5 rounded-full font-bold text-base sm:text-lg transition-all cursor-pointer shadow-wedding-lg
+                ${loading
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : 'wedding-gradient text-white hover:shadow-wedding-lg active:scale-95 border-2 border-wedding-blue-300'
+                                    }
+              `}
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="animate-spin" size={28} />
+                                        <span>Đang gửi media...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Camera size={28} />
+                                        <span>Tải media lên ngay</span>
+                                        <Sparkles size={20} className="animate-pulse sparkle" />
+                                    </>
+                                )}
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    onChange={handleUpload}
+                                    disabled={loading}
+                                    accept="image/*,video/*"
+                                />
+                            </motion.label>
+
+                            {/* Multiple Upload Button */}
+                            <motion.label
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className={`
+                inline-flex items-center gap-2 sm:gap-3 px-6 py-4 sm:px-10 sm:py-5 rounded-full font-bold text-base sm:text-lg transition-all cursor-pointer shadow-wedding-lg mt-4
+                ${loading
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : 'bg-wedding-gold-500 text-white hover:bg-wedding-gold-600 active:scale-95 border-2 border-wedding-gold-300'
+                                    }
+              `}
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="animate-spin" size={28} />
+                                        <span>Đang xử lý nhiều media...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ImageIcon size={28} />
+                                        <span>Tải nhiều media</span>
+                                        <Sparkles size={20} className="animate-pulse sparkle" />
+                                    </>
+                                )}
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    onChange={handleMultipleUpload}
+                                    disabled={loading}
+                                    accept="image/*,video/*"
+                                    multiple
+                                />
+                            </motion.label>
+
+                            {/* Upload Progress Bar */}
+                            {loading && uploadProgress > 0 && (
+                                <div className="mt-6 max-w-md mx-auto">
+                                    <div className="flex justify-between text-sm text-wedding-blue-600 mb-2">
+                                        <span>Đang gửi media...</span>
+                                        <span>{uploadProgress}%</span>
+                                    </div>
+                                    <div className="w-full bg-wedding-blue-100 rounded-full h-3 overflow-hidden">
+                                        <motion.div
+                                            className="h-full wedding-gradient rounded-full transition-all duration-300 ease-out"
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${uploadProgress}%` }}
+                                            style={{ minWidth: '2%' }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="mt-8 flex justify-center gap-8 text-wedding-blue-600">
+                                <div className="flex items-center gap-2">
+                                    <Heart size={16} className="text-red-400 fill-current animate-pulse heartbeat" />
+                                    <span className="text-sm">Yêu thương</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Star size={16} className="gold-accent fill-current wiggle" />
+                                    <span className="text-sm">Hạnh phúc</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Flower size={16} className="text-pink-400 fill-current floating" />
+                                    <span className="text-sm">Lãng mạn</span>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </section>
+                )
+            }
+
+            {/* Image Zoom Modal */}
+            {
+                zoomedImage && (
+                    <div
+                        className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                        onClick={() => setZoomedImage(null)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.3 }}
+                            className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Close Button */}
+                            <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => setZoomedImage(null)}
+                                className="absolute top-4 right-4 z-10 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                            >
+                                <X size={24} className="text-white" />
+                            </motion.button>
+
+                            {/* Media Container */}
+                            <div className="relative w-full h-full flex items-center justify-center">
+                                {zoomedImage.type === 'video' ? (
+                                    <video
+                                        src={zoomedImage.url}
+                                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                        controls
+                                        autoPlay
+                                    />
+                                ) : (
+                                    <img
+                                        src={zoomedImage.url}
+                                        alt="Wedding moment zoomed"
+                                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                    />
+                                )}
+
+                                {/* Media Info Overlay */}
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-4 text-white" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <p className="text-sm opacity-90">Danh mục: {zoomedImage.category}</p>
+                                                {zoomedImage.type === 'video' && (
+                                                    <span className="bg-wedding-gold-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                        <Video size={10} />
+                                                        <span>Video</span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs opacity-75">
+                                                {new Date(zoomedImage.createdAt).toLocaleDateString('vi-VN', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric'
+                                                })}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleLike(zoomedImage._id);
+                                                }}
+                                                disabled={likingPhotoId === zoomedImage._id}
+                                                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${likingPhotoId === zoomedImage._id
+                                                    ? 'bg-gray-500 cursor-not-allowed'
+                                                    : 'bg-white/20 backdrop-blur-md hover:bg-red-500 hover:text-white'
+                                                    }`}
+                                            >
+                                                {likingPhotoId === zoomedImage._id ? (
+                                                    <Loader2 size={16} className="animate-spin" />
+                                                ) : (
+                                                    <Heart size={16} className={media.find(m => m._id === zoomedImage._id)?.likes > 0 ? "text-red-400 fill-current" : ""} />
+                                                )}
+                                                <span className="font-bold">{media.find(m => m._id === zoomedImage._id)?.likes || 0}</span>
+                                            </motion.button>
+
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    downloadPhoto(zoomedImage.url, zoomedImage._id, zoomedImage.category);
+                                                }}
+                                                className="flex items-center gap-2 bg-wedding-gold-500/80 backdrop-blur-md px-4 py-2 rounded-full text-white hover:bg-wedding-gold-600 transition-all duration-300"
+                                            >
+                                                <Download size={16} />
+                                            </motion.button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
+                        </motion.div>
+                    </div>
+                )
+            }
 
             {/* Gallery Section */}
             <main className="max-w-7xl mx-auto px-4 py-24">
@@ -841,140 +981,194 @@ function App() {
                     </motion.button>
                 </motion.div>
 
-                {/* Category Filter */}
+                {/* Type and Category Filter */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
                     className="text-center mb-12"
                 >
-                    <div className="flex justify-center gap-4 flex-wrap">
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setFilterCategory('tất cả')}
-                            className={`px-4 py-2 sm:px-6 sm:py-3 rounded-full font-semibold transition-all duration-300 text-sm sm:text-base ${filterCategory === 'tất cả'
-                                ? 'wedding-gradient text-white shadow-wedding-lg'
-                                : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
-                                }`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <ImageIcon size={18} />
-                                <span>Tất cả</span>
-                            </div>
-                        </motion.button>
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setFilterCategory('ảnh check-in')}
-                            className={`px-4 py-2 sm:px-6 sm:py-3 rounded-full font-semibold transition-all duration-300 text-sm sm:text-base ${filterCategory === 'ảnh check-in'
-                                ? 'wedding-gradient text-white shadow-wedding-lg'
-                                : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
-                                }`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <Camera size={18} />
-                                <span>Ảnh check-in</span>
-                            </div>
-                        </motion.button>
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setFilterCategory('ảnh từng bàn')}
-                            className={`px-4 py-2 sm:px-6 sm:py-3 rounded-full font-semibold transition-all duration-300 text-sm sm:text-base ${filterCategory === 'ảnh từng bàn'
-                                ? 'wedding-gradient text-white shadow-wedding-lg'
-                                : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
-                                }`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <ImageIcon size={18} />
-                                <span>Ảnh từng bàn</span>
-                            </div>
-                        </motion.button>
+                    {/* Type Filter */}
+                    <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-wedding-blue-800 mb-3">Loại media:</h3>
+                        <div className="flex justify-center gap-3 flex-wrap">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setFilterType('tất cả')}
+                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterType === 'tất cả'
+                                    ? 'wedding-gradient text-white shadow-wedding-lg'
+                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <ImageIcon size={16} />
+                                    <span>Tất cả</span>
+                                </div>
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setFilterType('image')}
+                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterType === 'image'
+                                    ? 'wedding-gradient text-white shadow-wedding-lg'
+                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <ImageIcon size={16} />
+                                    <span>Ảnh</span>
+                                </div>
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setFilterType('video')}
+                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterType === 'video'
+                                    ? 'wedding-gradient text-white shadow-wedding-lg'
+                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Video size={16} />
+                                    <span>Video</span>
+                                </div>
+                            </motion.button>
+                        </div>
+                    </div>
+
+                    {/* Category Filter */}
+                    <div>
+                        <h3 className="text-lg font-semibold text-wedding-blue-800 mb-3">Danh mục:</h3>
+                        <div className="flex justify-center gap-3 flex-wrap">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setFilterCategory('tất cả')}
+                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterCategory === 'tất cả'
+                                    ? 'wedding-gradient text-white shadow-wedding-lg'
+                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <ImageIcon size={16} />
+                                    <span>Tất cả</span>
+                                </div>
+                            </motion.button>
+                            {categories.map((category) => (
+                                <motion.button
+                                    key={category}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setFilterCategory(category)}
+                                    className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterCategory === category
+                                        ? 'wedding-gradient text-white shadow-wedding-lg'
+                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                        }`}
+                                >
+                                    {category}
+                                </motion.button>
+                            ))}
+                        </div>
                     </div>
                 </motion.div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
                     <AnimatePresence>
-                        {photos
-                            .filter(photo => filterCategory === 'tất cả' || photo.category === filterCategory)
-                            .map((photo, index) => (
+                        {media
+                            .filter(item => {
+                                const typeMatch = filterType === 'tất cả' || item.type === filterType;
+                                const categoryMatch = filterCategory === 'tất cả' || item.category === filterCategory;
+                                return typeMatch && categoryMatch;
+                            })
+                            .map((item, index) => (
                                 <motion.div
-                                    key={photo._id}
-                                    initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    transition={{ delay: index * 0.1, duration: 0.5 }}
-                                    className="relative group rounded-2xl sm:rounded-3xl overflow-hidden shadow-wedding wedding-card border-2 border-transparent hover:border-wedding-blue-200 transition-all duration-500 gallery-item fade-in-up cursor-pointer"
-                                    onClick={() => setZoomedImage(photo)}
+                                    key={item._id}
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -30 }}
+                                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                                    className="group relative overflow-hidden rounded-2xl shadow-wedding-lg hover:shadow-wedding-xl transition-all duration-300 cursor-pointer bg-white"
+                                    onClick={() => setZoomedImage(item)}
                                 >
-                                    <div className="relative">
-                                        <img
-                                            src={photo.url}
-                                            alt="Wedding moment"
-                                            className="w-full h-auto gallery-image cursor-pointer"
-                                            onClick={() => setZoomedImage(photo)}
-                                        />
+                                    {/* Media Container */}
+                                    <div className="aspect-square relative overflow-hidden">
+                                        {item.type === 'video' ? (
+                                            <video
+                                                src={item.url}
+                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                                muted
+                                                loop
+                                                onMouseEnter={(e) => e.target.play()}
+                                                onMouseLeave={(e) => e.target.pause()}
+                                            />
+                                        ) : (
+                                            <img
+                                                src={item.url}
+                                                alt={item.category}
+                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                            />
+                                        )}
 
-                                        {/* Decorative corner */}
-                                        <div className="absolute top-2 right-2 w-8 h-8 border-t-2 border-r-2 border-wedding-gold-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 sparkle" />
-                                        <div className="absolute top-2 left-2 w-6 h-6 bg-wedding-gold-400/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pulse-glow" />
+                                        {/* Video Indicator */}
+                                        {item.type === 'video' && (
+                                            <div className="absolute top-3 left-3 bg-wedding-gold-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                                <Video size={12} />
+                                                <span>Video</span>
+                                            </div>
+                                        )}
+
+                                        {/* Overlay */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                     </div>
 
-                                    {/* Enhanced Overlay on Hover */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-wedding-blue-950/90 via-wedding-blue-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-between p-3 sm:p-4 lg:p-6">
-                                        <div className="flex justify-end">
+                                    {/* Content */}
+                                    <div className="p-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-xs font-medium text-wedding-blue-600 bg-wedding-blue-50 px-2 py-1 rounded-full">
+                                                {item.category}
+                                            </span>
+                                            <span className="text-xs text-wedding-blue-500">
+                                                {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                                            </span>
                                         </div>
 
-                                        <div className="flex justify-between items-end">
+                                        {/* Actions */}
+                                        <div className="flex justify-between items-center">
                                             <motion.button
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    handleLike(photo._id);
+                                                    handleLike(item._id);
                                                 }}
-                                                disabled={likingPhotoId === photo._id}
-                                                className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full transition-all duration-300 shadow-lg text-xs sm:text-sm ${likingPhotoId === photo._id
-                                                    ? 'bg-gray-300 cursor-not-allowed'
-                                                    : 'bg-white/90 backdrop-blur-md text-wedding-blue-900 hover:bg-red-500 hover:text-white'
+                                                disabled={likingPhotoId === item._id}
+                                                className={`flex items-center gap-1 px-3 py-1 rounded-full transition-all duration-300 ${likingPhotoId === item._id
+                                                    ? 'bg-gray-200 cursor-not-allowed'
+                                                    : 'bg-wedding-blue-50 hover:bg-red-50 hover:text-red-500 text-wedding-blue-600'
                                                     }`}
                                             >
-                                                {likingPhotoId === photo._id ? (
-                                                    <Loader2 size={16} className="animate-spin" />
+                                                {likingPhotoId === item._id ? (
+                                                    <Loader2 size={14} className="animate-spin" />
                                                 ) : (
-                                                    <Heart size={16} className={photo.likes > 0 ? "text-red-500 fill-current heartbeat" : ""} />
+                                                    <Heart size={14} className={item.likes > 0 ? "text-red-400 fill-current" : ""} />
                                                 )}
-                                                <span className="font-bold">{photo.likes}</span>
+                                                <span className="text-xs font-bold">{item.likes}</span>
                                             </motion.button>
 
-                                            <div className="flex items-center gap-2">
+                                            {isAdmin && (
                                                 <motion.button
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        downloadPhoto(photo.url, photo._id, photo.category);
+                                                        handleDelete(item._id);
                                                     }}
-                                                    className="flex items-center gap-1 sm:gap-2 bg-wedding-gold-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-wedding-gold-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
+                                                    className="text-red-400 hover:text-red-600 transition-colors p-1"
                                                 >
-                                                    <Download size={16} />
+                                                    <Trash2 size={14} />
                                                 </motion.button>
-
-                                                {isAdmin && (
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDelete(photo._id);
-                                                        }}
-                                                        className="flex items-center gap-1 sm:gap-2 bg-red-500/90 backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-full text-white hover:bg-red-600 transition-all duration-300 shadow-lg text-xs sm:text-sm"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </motion.button>
-                                                )}
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
                                 </motion.div>
@@ -983,7 +1177,7 @@ function App() {
                 </div >
 
                 {
-                    photos.length === 0 && !loading && (
+                    media.length === 0 && !loading && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -993,13 +1187,13 @@ function App() {
                                 <ImageIcon size={48} className="text-wedding-blue-400 floating" />
                             </div>
                             <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 mb-4 text-center">
-                                Chưa có tấm ảnh nào
+                                Chưa có media nào
                             </h3>
                             <p className="text-xl text-wedding-blue-700 mb-2 text-center">
                                 Hãy là người đầu tiên chia sẻ khoảnh khắc đẹp nhất!
                             </p>
                             <p className="text-wedding-blue-600 font-dancing text-center">
-                                Mỗi tấm ảnh là một câu chuyện tình yêu
+                                Mỗi media là một câu chuyện tình yêu
                             </p>
                         </motion.div>
                     )
