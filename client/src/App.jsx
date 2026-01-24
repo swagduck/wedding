@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit } from 'lucide-react';
+import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -29,6 +29,7 @@ function App() {
     const [zoomedImage, setZoomedImage] = useState(null);
     const [editingPhoto, setEditingPhoto] = useState(null);
     const [newCategoryForPhoto, setNewCategoryForPhoto] = useState('');
+    const [showCategoryDropdown, setShowCategoryDropdown] = useState(null);
 
     useEffect(() => {
         fetchMedia();
@@ -65,6 +66,18 @@ function App() {
     useEffect(() => {
         fetchMedia();
     }, [filterType, filterCategory]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (showCategoryDropdown && !event.target.closest('.category-dropdown')) {
+                setShowCategoryDropdown(null);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showCategoryDropdown]);
 
     const compressImage = async (file) => {
         return new Promise((resolve) => {
@@ -834,38 +847,61 @@ function App() {
                                                 {category}
                                             </motion.button>
                                             {isAdmin && category !== 'ảnh check-in' && category !== 'ảnh từng bàn' && category !== 'Videos' && (
-                                                <button
-                                                    onClick={() => {
-                                                        if (window.confirm(`Bạn có chắc chắn muốn xóa danh mục "${category}"?`)) {
-                                                            axios.delete(`${API_URL}/categories/${encodeURIComponent(category)}`, {
-                                                                headers: {
-                                                                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-                                                                }
-                                                            })
-                                                                .then(res => {
-                                                                    setCategories(res.data);
-                                                                    if (selectedCategory === category) {
-                                                                        setSelectedCategory('ảnh check-in');
-                                                                    }
-                                                                    if (filterCategory === category) {
-                                                                        setFilterCategory('tất cả');
-                                                                    }
-                                                                    toast.success('Đã xóa danh mục thành công!');
-                                                                })
-                                                                .catch(err => {
-                                                                    if (err.response?.status === 400) {
-                                                                        toast.error(err.response.data.message || 'Không thể xóa danh mục này!');
-                                                                    } else {
-                                                                        toast.error('Xóa danh mục thất bại! Bạn cần quyền admin.');
-                                                                    }
-                                                                });
-                                                        }
-                                                    }}
-                                                    className="text-red-400 hover:text-red-600 ml-2"
-                                                    title="Xóa danh mục"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
+                                                <div className="relative category-dropdown">
+                                                    <button
+                                                        onClick={() => setShowCategoryDropdown(showCategoryDropdown === category ? null : category)}
+                                                        className="text-wedding-blue-400 hover:text-wedding-blue-600 ml-2 transition-colors"
+                                                        title="Tùy chọn"
+                                                    >
+                                                        <MoreVertical size={14} />
+                                                    </button>
+
+                                                    <AnimatePresence>
+                                                        {showCategoryDropdown === category && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                transition={{ duration: 0.15 }}
+                                                                className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-wedding-blue-200 py-1 z-50 min-w-[120px]"
+                                                            >
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setShowCategoryDropdown(null);
+                                                                        if (window.confirm(`Bạn có chắc chắn muốn xóa danh mục "${category}"?`)) {
+                                                                            axios.delete(`${API_URL}/categories/${encodeURIComponent(category)}`, {
+                                                                                headers: {
+                                                                                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                                                                                }
+                                                                            })
+                                                                                .then(res => {
+                                                                                    setCategories(res.data);
+                                                                                    if (selectedCategory === category) {
+                                                                                        setSelectedCategory('ảnh check-in');
+                                                                                    }
+                                                                                    if (filterCategory === category) {
+                                                                                        setFilterCategory('tất cả');
+                                                                                    }
+                                                                                    toast.success('Đã xóa danh mục thành công!');
+                                                                                })
+                                                                                .catch(err => {
+                                                                                    if (err.response?.status === 400) {
+                                                                                        toast.error(err.response.data.message || 'Không thể xóa danh mục này!');
+                                                                                    } else {
+                                                                                        toast.error('Xóa danh mục thất bại! Bạn cần quyền admin.');
+                                                                                    }
+                                                                                });
+                                                                        }
+                                                                    }}
+                                                                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                    Xóa danh mục
+                                                                </button>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </div>
                                             )}
                                         </div>
                                     ))}
