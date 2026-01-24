@@ -241,6 +241,7 @@ try {
     cloud_name: process.env.CLOUDINARY_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true // Force HTTPS URLs
   });
   console.log('✅ Cloudinary configured successfully');
 } catch (error) {
@@ -404,7 +405,8 @@ app.post("/api/upload", authenticateAdmin, (req, res, next) => {
             resource_type: "video",
             public_id: `${Date.now()}_${req.file.originalname.split('.')[0]}`,
             quality: "auto",
-            fetch_format: "auto"
+            fetch_format: "auto",
+            secure: true // Force HTTPS URL
           },
           (error, result) => {
             if (error) {
@@ -433,7 +435,8 @@ app.post("/api/upload", authenticateAdmin, (req, res, next) => {
             fetch_format: "auto",
             transformation: [
               { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
-            ]
+            ],
+            secure: true // Force HTTPS URL
           },
           (error, result) => {
             if (error) {
@@ -451,7 +454,7 @@ app.post("/api/upload", authenticateAdmin, (req, res, next) => {
     }
 
     const newMedia = new Media({
-      url: cloudinaryResult.url || cloudinaryResult.secure_url,
+      url: cloudinaryResult.secure_url || cloudinaryResult.url, // Prefer secure_url
       public_id: cloudinaryResult.public_id,
       type: isVideo ? 'video' : 'image',
       category: category,
