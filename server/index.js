@@ -48,6 +48,35 @@ mongoose
       }
     }
     
+    // Migration: Chuyển data từ collection photos sang media
+    const db = mongoose.connection.db;
+    const collections = await db.listCollections().toArray();
+    const hasPhotosCollection = collections.some(c => c.name === 'photos');
+    
+    if (hasPhotosCollection) {
+      const photosCount = await db.collection('photos').countDocuments();
+      const mediaCount = await Media.countDocuments();
+      
+      if (photosCount > 0 && mediaCount === 0) {
+        console.log(`🔄 Migration: Chuyển ${photosCount} photos sang media collection...`);
+        
+        const photos = await db.collection('photos').find({}).toArray();
+        const mediaDocs = photos.map(photo => ({
+          url: photo.url,
+          public_id: photo.public_id,
+          type: 'image', // Tất cả photos cũ là image
+          category: photo.category,
+          likes: photo.likes || 0,
+          createdAt: photo.createdAt || new Date()
+        }));
+        
+        if (mediaDocs.length > 0) {
+          await Media.insertMany(mediaDocs);
+          console.log(`✅ Đã chuyển ${mediaDocs.length} photos sang media collection`);
+        }
+      }
+    }
+    
     // Chỉ xóa dummy media (có url chứa 'dummy' hoặc 'placeholder')
     const dummyMedia = await Media.find({ 
       $or: [
@@ -68,9 +97,9 @@ mongoose
       console.log("✅ Không có dummy media nào cần xóa");
     }
     
-    // Thêm media mẫu nếu database trống
-    const mediaCount = await Media.countDocuments();
-    if (mediaCount === 0) {
+    // Thêm media mẫu nếu database vẫn trống sau migration
+    const finalMediaCount = await Media.countDocuments();
+    if (finalMediaCount === 0) {
       console.log("📸 Thêm media mẫu để test...");
       await Media.create([
         {
@@ -96,6 +125,8 @@ mongoose
         }
       ]);
       console.log("✅ Đã thêm 3 media mẫu");
+    } else {
+      console.log(`✅ Database có ${finalMediaCount} media items`);
     }
   })
   .catch((err) => console.error("❌ Lỗi kết nối MongoDB:", err));

@@ -6,7 +6,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 
 const API_URL = import.meta.env.PROD
-    ? 'https://your-backend-url.onrender.com/api'
+    ? 'https://wedding-f35z.onrender.com/api'
     : 'http://localhost:8000/api';
 
 function App() {
