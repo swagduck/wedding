@@ -484,7 +484,7 @@ function App() {
                         transition={{ delay: 0.3 }}
                         className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-dancing font-bold mb-6 sm:mb-8 gold-accent"
                     >
-                        Huy & Ý
+                        Nhật Huy & Thiên Ý
                     </motion.p>
 
                     <motion.div
@@ -1406,7 +1406,7 @@ function App() {
                         <div className="flex justify-center mb-6">
                             <div className="flex items-center gap-3">
                                 <Heart size={24} className="text-red-400 fill-current animate-pulse heartbeat" />
-                                <span className="text-2xl font-playfair font-bold gold-accent">Huy & Ý</span>
+                                <span className="text-2xl font-playfair font-bold gold-accent">Nhật Huy & Thiên Ý</span>
                                 <Heart size={24} className="text-red-400 fill-current animate-pulse heartbeat" />
                             </div>
                         </div>
