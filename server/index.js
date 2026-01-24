@@ -254,44 +254,35 @@ const storage = new CloudinaryStorage({
     const isVideo = file.mimetype.startsWith('video/');
     console.log(`🎬 Cloudinary: Processing ${isVideo ? 'video' : 'image'} - ${file.originalname}`);
     
-    const baseConfig = {
+    if (isVideo) {
+      // For videos, use memory storage to allow manual upload
+      return null; // This will trigger manual handling
+    }
+    
+    // For images, use normal Cloudinary storage
+    return {
       folder: "wedding_album",
-      resource_type: isVideo ? 'video' : 'image',
-      allowed_formats: isVideo ? ['mp4', 'mov', 'avi', 'webm'] : ["jpg", "png", "jpeg", "webp"],
+      resource_type: 'image',
+      allowed_formats: ["jpg", "png", "jpeg", "webp"],
+      quality: "auto:good",
       fetch_format: "auto",
+      transformation: [
+        { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
+      ],
       public_id: `${Date.now()}_${file.originalname.split('.')[0]}`
     };
-
-    if (isVideo) {
-      // For videos, use minimal configuration to avoid processing issues
-      return {
-        ...baseConfig,
-        quality: "auto",
-        // Remove all transformations and async processing that might cause issues
-      };
-    } else {
-      // For images, keep the transformation
-      return {
-        ...baseConfig,
-        quality: "auto:good",
-        transformation: [
-          { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
-        ]
-      };
-    }
   },
 });
 
-// Add Cloudinary upload error handling
-const multerInstance = multer({ 
-  storage,
+// For videos, use memory storage and manual Cloudinary upload
+const videoUpload = multer({ 
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // Reduced to 50MB for videos to test
+    fileSize: 100 * 1024 * 1024, // 100MB limit for videos
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
     console.log(`🔍 File type check: ${file.mimetype} (allowed: ${allowedTypes.includes(file.mimetype)})`);
-    console.log(`📏 File size: ${file.size ? (file.size / 1024 / 1024).toFixed(2) + 'MB' : 'unknown'}`);
     
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
@@ -302,24 +293,23 @@ const multerInstance = multer({
   }
 });
 
-const upload = {
-  single: (fieldName) => {
-    return (req, res, next) => {
-      multerInstance.single(fieldName)(req, res, (err) => {
-        if (err) {
-          console.error('❌ Multer/Cloudinary upload error:', {
-            message: err.message,
-            name: err.name,
-            stack: err.stack
-          });
-          return next(err);
-        }
-        console.log('✅ Cloudinary upload successful:', req.file?.filename);
-        next();
-      });
-    };
+const imageUpload = multer({ 
+  storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
+    console.log(`🔍 File type check: ${file.mimetype} (allowed: ${allowedTypes.includes(file.mimetype)})`);
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      console.log(`❌ Rejected file type: ${file.mimetype}`);
+      cb(new Error('Chỉ chấp nhận ảnh (JPG, PNG, WebP) và video (MP4, MOV, AVI)'), false);
+    }
   }
-};
+});
 
 console.log('✅ Multer storage configured');
 
@@ -394,7 +384,19 @@ app.post("/api/categories", authenticateAdmin, async (req, res) => {
  * @route   POST /api/upload
  * @desc    Nhận media từ admin, đẩy lên Cloudinary, lưu URL vào MongoDB (Chỉ admin)
  */
-app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, res) => {
+app.post("/api/upload", authenticateAdmin, (req, res, next) => {
+  // Check if it's a video by content type or use a fallback
+  const contentType = req.headers['content-type'] || '';
+  const isVideoUpload = contentType.includes('video/mp4') || contentType.includes('video/quicktime') || contentType.includes('video/avi');
+  
+  if (isVideoUpload) {
+    console.log('🎬 Using video upload handler');
+    return videoUpload.single("media")(req, res, next);
+  } else {
+    console.log('🖼️ Using image upload handler');
+    return imageUpload.single("media")(req, res, next);
+  }
+}, async (req, res) => {
   console.log('📤 Upload request received');
   console.log('📁 File info:', req.file ? {
     originalname: req.file.originalname,
@@ -415,25 +417,47 @@ app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, r
 
     const { category = 'ảnh check-in' } = req.body;
     const isVideo = req.file.mimetype.startsWith('video/');
+    let cloudinaryResult;
 
-    console.log(`🎬 Processing ${isVideo ? 'video' : 'image'} for category: ${category}`);
-    console.log('🔗 Cloudinary URL:', req.file.path);
-    console.log('🆔 Public ID:', req.file.filename);
-
-    // Validate Cloudinary response
-    if (!req.file.path || !req.file.filename) {
-      console.error('❌ Invalid Cloudinary response:', {
-        path: req.file.path,
-        filename: req.file.filename
+    if (isVideo) {
+      // Manual Cloudinary upload for videos
+      console.log('🎬 Processing video upload manually...');
+      
+      cloudinaryResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "wedding_album",
+            resource_type: "video",
+            public_id: `${Date.now()}_${req.file.originalname.split('.')[0]}`,
+            quality: "auto",
+            fetch_format: "auto"
+          },
+          (error, result) => {
+            if (error) {
+              console.error('❌ Cloudinary video upload error:', error);
+              reject(error);
+            } else {
+              console.log('✅ Cloudinary video upload successful:', result.public_id);
+              resolve(result);
+            }
+          }
+        );
+        
+        uploadStream.end(req.file.buffer);
       });
-      return res.status(500).json({ 
-        message: "Lỗi xử lý file trên Cloudinary - không nhận được URL" 
-      });
+    } else {
+      // For images, use the file from multer-storage-cloudinary
+      console.log('🖼️ Processing image upload...');
+      cloudinaryResult = {
+        url: req.file.path,
+        public_id: req.file.filename,
+        secure_url: req.file.path
+      };
     }
 
     const newMedia = new Media({
-      url: req.file.path,
-      public_id: req.file.filename,
+      url: cloudinaryResult.url || cloudinaryResult.secure_url,
+      public_id: cloudinaryResult.public_id,
       type: isVideo ? 'video' : 'image',
       category: category,
     });
@@ -459,12 +483,6 @@ app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, r
     if (error.name === 'MongoError' || error.name === 'MongoServerError') {
       console.log('❌ Database connection error');
       return res.status(503).json({ message: "Lỗi kết nối database", error: error.message });
-    }
-    
-    // Handle Cloudinary specific errors
-    if (error.message && error.message.includes('Cloudinary')) {
-      console.log('❌ Cloudinary processing error');
-      return res.status(503).json({ message: "Lỗi xử lý file trên Cloudinary", error: error.message });
     }
     
     console.log('❌ General upload error');
