@@ -53,15 +53,38 @@ app.use((error, req, res, next) => {
     return res.status(400).json({ message: error.message });
   }
   
+  // Handle Cloudinary video processing errors
+  if (error.message.includes('Video is too large to process synchronously')) {
+    console.error('❌ Video processing error:', error.message);
+    return res.status(413).json({ 
+      message: 'Video quá lớn để xử lý. Vui lòng thử lại với video nhỏ hơn hoặc đợi xử lý hoàn tất.' 
+    });
+  }
+  
+  if (error.message.includes('Cloudinary')) {
+    console.error('❌ Cloudinary error:', error.message);
+    return res.status(503).json({ 
+      message: 'Lỗi xử lý file trên Cloudinary. Vui lòng thử lại sau.' 
+    });
+  }
+  
   next(error);
 });
 
 // Set timeout for requests
 app.use((req, res, next) => {
-  res.setTimeout(10000, () => {
-    console.log('Request timeout');
-    res.status(408).send('Request timeout');
-  });
+  // Longer timeout for upload endpoints
+  if (req.path.includes('/upload')) {
+    res.setTimeout(120000, () => { // 2 minutes for uploads
+      console.log('Upload request timeout');
+      res.status(408).send('Upload timeout - file quá lớn hoặc mất quá nhiều thời gian để xử lý');
+    });
+  } else {
+    res.setTimeout(10000, () => { // 10 seconds for other requests
+      console.log('Request timeout');
+      res.status(408).send('Request timeout');
+    });
+  }
   next();
 });
 
@@ -231,17 +254,32 @@ const storage = new CloudinaryStorage({
     const isVideo = file.mimetype.startsWith('video/');
     console.log(`🎬 Cloudinary: Processing ${isVideo ? 'video' : 'image'} - ${file.originalname}`);
     
-    return {
+    const baseConfig = {
       folder: "wedding_album",
       resource_type: isVideo ? 'video' : 'image',
       allowed_formats: isVideo ? ['mp4', 'mov', 'avi', 'webm'] : ["jpg", "png", "jpeg", "webp"],
-      quality: isVideo ? "auto:good" : "auto:good",
       fetch_format: "auto",
-      transformation: isVideo ? [] : [
-        { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
-      ],
       public_id: `${Date.now()}_${file.originalname.split('.')[0]}`
     };
+
+    if (isVideo) {
+      // For videos, use async processing and no transformation to avoid size limits
+      return {
+        ...baseConfig,
+        eager_async: true,
+        quality: "auto",
+        // Remove transformation for videos to avoid sync processing issues
+      };
+    } else {
+      // For images, keep the transformation
+      return {
+        ...baseConfig,
+        quality: "auto:good",
+        transformation: [
+          { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
+        ]
+      };
+    }
   },
 });
 
