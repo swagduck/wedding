@@ -10,4 +10,14 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: MONGO_URI
+        value: mongodb+srv://hoanguy:uyhoang@mongodb.p9ncspb.mongodb.net/weddingDB?retryWrites=true&w=majority
+      - key: CLOUDINARY_NAME
+        value: dfkac2u3x
+      - key: CLOUDINARY_API_KEY
+        value: 256381815943256
+      - key: CLOUDINARY_API_SECRET
+        value: vkGMoRnWYvU2BxFhZLifvjx_WOY
+      - key: ADMIN_TOKEN
+        value: huy&y2026
     autoDeploy: true
