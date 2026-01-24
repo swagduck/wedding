@@ -106,7 +106,7 @@ mongoose
     console.log("✅ Đã kết nối MongoDB thành công!");
     
     // Khởi tạo default categories nếu chưa có
-    const defaultCategories = ['ảnh check-in', 'ảnh từng bàn'];
+    const defaultCategories = ['ảnh check-in', 'ảnh từng bàn', 'Videos'];
     for (const catName of defaultCategories) {
       const exists = await Category.findOne({ name: catName });
       if (!exists) {
@@ -425,6 +425,8 @@ app.post("/api/upload", authenticateAdmin, (req, res, next) => {
 
     const { category = 'ảnh check-in' } = req.body;
     const isVideo = req.file.mimetype.startsWith('video/');
+    // Auto-assign videos to Videos category
+    const finalCategory = isVideo ? 'Videos' : category;
     let cloudinaryResult;
 
     if (isVideo) {
@@ -490,7 +492,7 @@ app.post("/api/upload", authenticateAdmin, (req, res, next) => {
       url: cloudinaryResult.secure_url || cloudinaryResult.url, // Prefer secure_url
       public_id: cloudinaryResult.public_id,
       type: isVideo ? 'video' : 'image',
-      category: category,
+      category: finalCategory,
     });
 
     console.log('💾 Saving to database...');

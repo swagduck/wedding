@@ -743,7 +743,7 @@ function App() {
                                             >
                                                 {category}
                                             </motion.button>
-                                            {isAdmin && category !== 'ảnh check-in' && category !== 'ảnh từng bàn' && (
+                                            {isAdmin && category !== 'ảnh check-in' && category !== 'ảnh từng bàn' && category !== 'Videos' && (
                                                 <button
                                                     onClick={() => {
                                                         if (window.confirm(`Bạn có chắc chắn muốn xóa danh mục "${category}"?`)) {
