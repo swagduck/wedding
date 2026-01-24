@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus } from 'lucide-react';
+import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -27,6 +27,8 @@ function App() {
     const [multipleFiles, setMultipleFiles] = useState([]);
     const [likingPhotoId, setLikingPhotoId] = useState(null);
     const [zoomedImage, setZoomedImage] = useState(null);
+    const [editingPhoto, setEditingPhoto] = useState(null);
+    const [newCategoryForPhoto, setNewCategoryForPhoto] = useState('');
 
     useEffect(() => {
         fetchMedia();
@@ -213,7 +215,6 @@ function App() {
             setMedia(previousMedia);
             toast.error("Không thể thả tim, vui lòng thử lại!");
             console.error(err);
-        } finally {
             setLikingPhotoId(null);
         }
     };
@@ -237,15 +238,33 @@ function App() {
         }
     };
 
-    const handleLogin = () => {
-        if (adminPassword === 'huy&y2026') {
-            setIsAdmin(true);
-            localStorage.setItem('adminToken', 'huy&y2026');
-            setShowLogin(false);
-            setAdminPassword('');
-            toast.success("Đăng nhập admin thành công!");
-        } else {
-            toast.error("Mật khẩu không đúng!");
+    const handleEditCategory = async (photoId) => {
+        if (!newCategoryForPhoto.trim()) {
+            toast.error('Vui lòng chọn danh mục!');
+            return;
+        }
+
+        try {
+            const res = await axios.patch(`${API_URL}/media/${photoId}/category`,
+                { category: newCategoryForPhoto.trim() },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    }
+                }
+            );
+
+            setMedia(media.map(m => m._id === photoId ? res.data : m));
+            setEditingPhoto(null);
+            setNewCategoryForPhoto('');
+            toast.success('Đã cập nhật danh mục!');
+        } catch (err) {
+            if (err.response?.status === 400) {
+                toast.error(err.response.data.message || 'Danh mục không tồn tại!');
+            } else {
+                toast.error('Không thể cập nhật danh mục! Bạn cần quyền admin.');
+            }
+            console.error(err);
         }
     };
 
@@ -680,6 +699,77 @@ function App() {
                             </div>
                             <div className="absolute -bottom-4 -right-4 text-wedding-gold-400 animate-pulse-slow" style={{ animationDelay: '1s' }}>
                                 <Star size={20} fill="currentColor" className="wiggle" />
+                            </div>
+                        </motion.div>
+                    </div>
+                )
+            }
+
+            {/* Edit Category Modal */}
+            {
+                editingPhoto && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="wedding-card rounded-3xl p-8 max-w-md w-full border border-wedding-blue-200"
+                        >
+                            <div className="text-center mb-6">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 rounded-full mb-4">
+                                    <Plus size={28} className="text-wedding-blue-600" />
+                                </div>
+                                <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 mb-2">
+                                    Sửa danh mục ảnh
+                                </h3>
+                                <p className="text-wedding-blue-600">
+                                    Chọn danh mục mới cho ảnh này
+                                </p>
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-wedding-blue-800 font-semibold mb-3">
+                                    Chọn danh mục:
+                                </label>
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                    {categories.map((category) => (
+                                        <motion.button
+                                            key={category}
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={() => setNewCategoryForPhoto(category)}
+                                            className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 text-left ${newCategoryForPhoto === category
+                                                ? 'wedding-gradient text-white shadow-wedding-lg'
+                                                : 'bg-wedding-blue-50 text-wedding-blue-700 hover:bg-wedding-blue-100 border-2 border-wedding-blue-200'
+                                                }`}
+                                        >
+                                            {category}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => handleEditCategory(editingPhoto._id)}
+                                    disabled={!newCategoryForPhoto.trim()}
+                                    className="flex-1 btn-primary disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                >
+                                    Cập nhật
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => {
+                                        setEditingPhoto(null);
+                                        setNewCategoryForPhoto('');
+                                    }}
+                                    className="flex-1 btn-secondary"
+                                >
+                                    Hủy
+                                </motion.button>
                             </div>
                         </motion.div>
                     </div>
@@ -1205,24 +1295,39 @@ function App() {
                                             </motion.button>
 
                                             {isAdmin && (
-                                                <motion.button
-                                                    whileHover={{ scale: 1.1 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(item._id);
-                                                    }}
-                                                    className="text-red-400 hover:text-red-600 transition-colors p-1"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </motion.button>
+                                                <>
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.1 }}
+                                                        whileTap={{ scale: 0.9 }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingPhoto(item);
+                                                            setNewCategoryForPhoto(item.category);
+                                                        }}
+                                                        className="text-blue-400 hover:text-blue-600 transition-colors p-1"
+                                                        title="Sửa danh mục"
+                                                    >
+                                                        <Edit size={14} />
+                                                    </motion.button>
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.1 }}
+                                                        whileTap={{ scale: 0.9 }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDelete(item._id);
+                                                        }}
+                                                        className="text-red-400 hover:text-red-600 transition-colors p-1"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </motion.button>
+                                                </>
                                             )}
                                         </div>
                                     </div>
                                 </motion.div>
                             ))}
                     </AnimatePresence>
-                </div >
+                </div>
 
                 {
                     media.length === 0 && !loading && (
@@ -1246,7 +1351,7 @@ function App() {
                         </motion.div>
                     )
                 }
-            </main >
+            </main>
 
             <footer className="relative bg-gradient-to-r from-wedding-blue-900 via-wedding-blue-800 to-wedding-blue-900 text-white py-16 mt-20 overflow-hidden">
                 {/* Decorative background */}

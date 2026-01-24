@@ -553,6 +553,45 @@ app.patch("/api/media/:id/like", async (req, res) => {
 });
 
 /**
+ * @route   PATCH /api/media/:id/category
+ * @desc    Cập nhật danh mục cho media (Chỉ admin)
+ */
+app.patch("/api/media/:id/category", authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category } = req.body;
+    
+    if (!category || category.trim() === '') {
+      return res.status(400).json({ message: "Tên danh mục không được rỗng" });
+    }
+
+    // Kiểm tra media có tồn tại không
+    const media = await Media.findById(id);
+    if (!media) {
+      return res.status(404).json({ message: "Không tìm thấy media này." });
+    }
+
+    // Kiểm tra category có tồn tại không
+    const categoryExists = await Category.findOne({ name: category.trim() });
+    if (!categoryExists) {
+      return res.status(400).json({ message: "Danh mục không tồn tại." });
+    }
+
+    // Cập nhật category cho media
+    const updatedMedia = await Media.findByIdAndUpdate(
+      id,
+      { category: category.trim() },
+      { new: true }
+    );
+
+    res.status(200).json(updatedMedia);
+  } catch (error) {
+    console.error('Update category error:', error);
+    res.status(500).json({ message: "Lỗi khi cập nhật danh mục", error });
+  }
+});
+
+/**
  * @route   DELETE /api/media/:id
  * @desc    Xóa media khỏi MongoDB và Cloudinary (Chỉ admin)
  */
