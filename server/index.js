@@ -293,24 +293,6 @@ const videoUpload = multer({
   }
 });
 
-const imageUpload = multer({ 
-  storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
-    console.log(`🔍 File type check: ${file.mimetype} (allowed: ${allowedTypes.includes(file.mimetype)})`);
-    
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      console.log(`❌ Rejected file type: ${file.mimetype}`);
-      cb(new Error('Chỉ chấp nhận ảnh (JPG, PNG, WebP) và video (MP4, MOV, AVI)'), false);
-    }
-  }
-});
-
 console.log('✅ Multer storage configured');
 
 // 6. Định nghĩa các API Endpoints
@@ -385,17 +367,9 @@ app.post("/api/categories", authenticateAdmin, async (req, res) => {
  * @desc    Nhận media từ admin, đẩy lên Cloudinary, lưu URL vào MongoDB (Chỉ admin)
  */
 app.post("/api/upload", authenticateAdmin, (req, res, next) => {
-  // Check if it's a video by content type or use a fallback
-  const contentType = req.headers['content-type'] || '';
-  const isVideoUpload = contentType.includes('video/mp4') || contentType.includes('video/quicktime') || contentType.includes('video/avi');
-  
-  if (isVideoUpload) {
-    console.log('🎬 Using video upload handler');
-    return videoUpload.single("media")(req, res, next);
-  } else {
-    console.log('🖼️ Using image upload handler');
-    return imageUpload.single("media")(req, res, next);
-  }
+  // Use a universal upload handler that can handle both images and videos
+  console.log('📤 Upload request received');
+  return videoUpload.single("media")(req, res, next);
 }, async (req, res) => {
   console.log('📤 Upload request received');
   console.log('📁 File info:', req.file ? {
@@ -446,13 +420,34 @@ app.post("/api/upload", authenticateAdmin, (req, res, next) => {
         uploadStream.end(req.file.buffer);
       });
     } else {
-      // For images, use the file from multer-storage-cloudinary
-      console.log('🖼️ Processing image upload...');
-      cloudinaryResult = {
-        url: req.file.path,
-        public_id: req.file.filename,
-        secure_url: req.file.path
-      };
+      // For images, upload to Cloudinary manually as well
+      console.log('🖼️ Processing image upload manually...');
+      
+      cloudinaryResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "wedding_album",
+            resource_type: "image",
+            public_id: `${Date.now()}_${req.file.originalname.split('.')[0]}`,
+            quality: "auto:good",
+            fetch_format: "auto",
+            transformation: [
+              { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
+            ]
+          },
+          (error, result) => {
+            if (error) {
+              console.error('❌ Cloudinary image upload error:', error);
+              reject(error);
+            } else {
+              console.log('✅ Cloudinary image upload successful:', result.public_id);
+              resolve(result);
+            }
+          }
+        );
+        
+        uploadStream.end(req.file.buffer);
+      });
     }
 
     const newMedia = new Media({
