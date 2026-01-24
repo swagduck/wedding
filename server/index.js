@@ -263,12 +263,11 @@ const storage = new CloudinaryStorage({
     };
 
     if (isVideo) {
-      // For videos, use async processing and no transformation to avoid size limits
+      // For videos, use minimal configuration to avoid processing issues
       return {
         ...baseConfig,
-        eager_async: true,
         quality: "auto",
-        // Remove transformation for videos to avoid sync processing issues
+        // Remove all transformations and async processing that might cause issues
       };
     } else {
       // For images, keep the transformation
@@ -287,11 +286,12 @@ const storage = new CloudinaryStorage({
 const multerInstance = multer({ 
   storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit for videos
+    fileSize: 50 * 1024 * 1024, // Reduced to 50MB for videos to test
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
     console.log(`🔍 File type check: ${file.mimetype} (allowed: ${allowedTypes.includes(file.mimetype)})`);
+    console.log(`📏 File size: ${file.size ? (file.size / 1024 / 1024).toFixed(2) + 'MB' : 'unknown'}`);
     
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
@@ -417,6 +417,19 @@ app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, r
     const isVideo = req.file.mimetype.startsWith('video/');
 
     console.log(`🎬 Processing ${isVideo ? 'video' : 'image'} for category: ${category}`);
+    console.log('🔗 Cloudinary URL:', req.file.path);
+    console.log('🆔 Public ID:', req.file.filename);
+
+    // Validate Cloudinary response
+    if (!req.file.path || !req.file.filename) {
+      console.error('❌ Invalid Cloudinary response:', {
+        path: req.file.path,
+        filename: req.file.filename
+      });
+      return res.status(500).json({ 
+        message: "Lỗi xử lý file trên Cloudinary - không nhận được URL" 
+      });
+    }
 
     const newMedia = new Media({
       url: req.file.path,
@@ -446,6 +459,12 @@ app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, r
     if (error.name === 'MongoError' || error.name === 'MongoServerError') {
       console.log('❌ Database connection error');
       return res.status(503).json({ message: "Lỗi kết nối database", error: error.message });
+    }
+    
+    // Handle Cloudinary specific errors
+    if (error.message && error.message.includes('Cloudinary')) {
+      console.log('❌ Cloudinary processing error');
+      return res.status(503).json({ message: "Lỗi xử lý file trên Cloudinary", error: error.message });
     }
     
     console.log('❌ General upload error');
