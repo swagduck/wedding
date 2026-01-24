@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 
-const API_URL = 'https://wedding-f35z.onrender.com/api';
+const API_URL = import.meta.env.PROD
+    ? 'https://your-backend-url.onrender.com/api'
+    : 'http://localhost:8000/api';
 
 function App() {
     const [media, setMedia] = useState([]);
@@ -279,15 +281,26 @@ function App() {
         }
 
         try {
-            // For now, we'll just add it to the local state
-            // In a real implementation, you might want to save this to the backend
-            setCategories([...categories, newCategory.trim()]);
+            const res = await axios.post(`${API_URL}/categories`,
+                { category: newCategory.trim() },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    }
+                }
+            );
+
+            setCategories(res.data);
             setSelectedCategory(newCategory.trim());
             setNewCategory('');
             setShowAddCategory(false);
             toast.success('Đã thêm danh mục mới!');
         } catch (err) {
-            toast.error('Không thể thêm danh mục!');
+            if (err.response?.status === 400) {
+                toast.error(err.response.data.message || 'Danh mục đã tồn tại!');
+            } else {
+                toast.error('Không thể thêm danh mục! Bạn cần quyền admin.');
+            }
             console.error(err);
         }
     };

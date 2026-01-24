@@ -1,13 +1,10 @@
-import express from "express";
-import mongoose from "mongoose";
-import cors from "cors";
-import dotenv from "dotenv";
-import { v2 as cloudinary } from "cloudinary";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import multer from "multer";
-
-// 1. Cấu hình Biến môi trường từ file .env
-dotenv.config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const multer = require('multer');
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,10 +36,80 @@ const authenticateAdmin = (req, res, next) => {
 // 3. Kết nối MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Đã kết nối MongoDB thành công!"))
+  .then(async () => {
+    console.log("✅ Đã kết nối MongoDB thành công!");
+    
+    // Khởi tạo default categories nếu chưa có
+    const defaultCategories = ['ảnh check-in', 'ảnh từng bàn'];
+    for (const catName of defaultCategories) {
+      const exists = await Category.findOne({ name: catName });
+      if (!exists) {
+        await Category.create({ name: catName });
+      }
+    }
+    
+    // Chỉ xóa dummy media (có url chứa 'dummy' hoặc 'placeholder')
+    const dummyMedia = await Media.find({ 
+      $or: [
+        { url: { $regex: /dummy|placeholder/ } },
+        { public_id: { $regex: /^dummy_/ } }
+      ]
+    });
+    
+    if (dummyMedia.length > 0) {
+      await Media.deleteMany({ 
+        $or: [
+          { url: { $regex: /dummy|placeholder/ } },
+          { public_id: { $regex: /^dummy_/ } }
+        ]
+      });
+      console.log(`🧹 Đã xóa ${dummyMedia.length} dummy media`);
+    } else {
+      console.log("✅ Không có dummy media nào cần xóa");
+    }
+    
+    // Thêm media mẫu nếu database trống
+    const mediaCount = await Media.countDocuments();
+    if (mediaCount === 0) {
+      console.log("📸 Thêm media mẫu để test...");
+      await Media.create([
+        {
+          url: "https://images.unsplash.com/photo-1519225421984-9dc30b022cbe?w=800&h=600&fit=crop",
+          public_id: "sample_wedding_1",
+          type: "image",
+          category: "ảnh check-in",
+          likes: 5
+        },
+        {
+          url: "https://images.unsplash.com/photo-1519741497674-611821869e9a?w=800&h=600&fit=crop",
+          public_id: "sample_wedding_2", 
+          type: "image",
+          category: "ảnh từng bàn",
+          likes: 3
+        },
+        {
+          url: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4",
+          public_id: "sample_video_1",
+          type: "video", 
+          category: "ảnh check-in",
+          likes: 8
+        }
+      ]);
+      console.log("✅ Đã thêm 3 media mẫu");
+    }
+  })
   .catch((err) => console.error("❌ Lỗi kết nối MongoDB:", err));
 
-// 4. Định nghĩa Schema & Model cho Media (ảnh/video)
+// 4. Định nghĩa Schema & Model
+// Categories Schema
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Category = mongoose.model("Category", categorySchema);
+
+// Media Schema (ảnh/video)
 const mediaSchema = new mongoose.Schema({
   url: { type: String, required: true },
   public_id: { type: String, required: true },
@@ -136,10 +203,43 @@ app.get("/api/media", async (req, res) => {
  */
 app.get("/api/categories", async (req, res) => {
   try {
-    const categories = await Media.distinct('category');
-    res.status(200).json(categories);
+    const categories = await Category.find().sort({ createdAt: 1 });
+    res.status(200).json(categories.map(cat => cat.name));
   } catch (error) {
     res.status(500).json({ message: "Lỗi khi lấy danh sách categories", error });
+  }
+});
+
+/**
+ * @route   POST /api/categories
+ * @desc    Tạo category mới (Chỉ admin)
+ */
+app.post("/api/categories", authenticateAdmin, async (req, res) => {
+  try {
+    const { category } = req.body;
+    
+    if (!category || category.trim() === '') {
+      return res.status(400).json({ message: "Tên category không được rỗng" });
+    }
+
+    // Kiểm tra category đã tồn tại chưa
+    const existingCategory = await Category.findOne({ name: category.trim() });
+    if (existingCategory) {
+      return res.status(400).json({ message: "Category đã tồn tại" });
+    }
+
+    // Tạo category mới
+    const newCategory = new Category({
+      name: category.trim()
+    });
+
+    await newCategory.save();
+
+    // Lấy lại danh sách categories
+    const categories = await Category.find().sort({ createdAt: 1 });
+    res.status(201).json(categories.map(cat => cat.name));
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi khi tạo category", error });
   }
 });
 
