@@ -731,18 +731,53 @@ function App() {
                                 </div>
                                 <div className="flex justify-center gap-3 flex-wrap">
                                     {categories.map((category) => (
-                                        <motion.button
-                                            key={category}
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={() => setSelectedCategory(category)}
-                                            className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${selectedCategory === category
-                                                ? 'wedding-gradient text-white shadow-wedding-lg'
-                                                : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
-                                                }`}
-                                        >
-                                            {category}
-                                        </motion.button>
+                                        <div key={category} className="flex items-center gap-2">
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={() => setSelectedCategory(category)}
+                                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${selectedCategory === category
+                                                    ? 'wedding-gradient text-white shadow-wedding-lg'
+                                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                                    }`}
+                                            >
+                                                {category}
+                                            </motion.button>
+                                            {isAdmin && category !== 'ảnh check-in' && category !== 'ảnh từng bàn' && (
+                                                <button
+                                                    onClick={() => {
+                                                        if (window.confirm(`Bạn có chắc chắn muốn xóa danh mục "${category}"?`)) {
+                                                            axios.delete(`${API_URL}/categories/${encodeURIComponent(category)}`, {
+                                                                headers: {
+                                                                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                                                                }
+                                                            })
+                                                                .then(res => {
+                                                                    setCategories(res.data);
+                                                                    if (selectedCategory === category) {
+                                                                        setSelectedCategory('ảnh check-in');
+                                                                    }
+                                                                    if (filterCategory === category) {
+                                                                        setFilterCategory('tất cả');
+                                                                    }
+                                                                    toast.success('Đã xóa danh mục thành công!');
+                                                                })
+                                                                .catch(err => {
+                                                                    if (err.response?.status === 400) {
+                                                                        toast.error(err.response.data.message || 'Không thể xóa danh mục này!');
+                                                                    } else {
+                                                                        toast.error('Xóa danh mục thất bại! Bạn cần quyền admin.');
+                                                                    }
+                                                                });
+                                                        }
+                                                    }}
+                                                    className="text-red-400 hover:text-red-600 ml-2"
+                                                    title="Xóa danh mục"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                                 <p className="mt-3 text-sm text-wedding-blue-600">

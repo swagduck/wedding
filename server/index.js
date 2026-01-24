@@ -364,6 +364,39 @@ app.post("/api/categories", authenticateAdmin, async (req, res) => {
 });
 
 /**
+ * @route   DELETE /api/categories/:name
+ * @desc    Xóa category (Chỉ admin)
+ */
+app.delete("/api/categories/:name", authenticateAdmin, async (req, res) => {
+  try {
+    const { name } = req.params;
+    
+    // Kiểm tra category có tồn tại không
+    const category = await Category.findOne({ name });
+    if (!category) {
+      return res.status(404).json({ message: "Không tìm thấy danh mục này." });
+    }
+
+    // Kiểm tra category có media nào không
+    const mediaCount = await Media.countDocuments({ category: name });
+    if (mediaCount > 0) {
+      return res.status(400).json({ 
+        message: `Không thể xóa danh mục này vì còn ${mediaCount} media đang sử dụng. Vui lòng xóa hết media trước.` 
+      });
+    }
+
+    // Xóa category
+    await Category.findOneAndDelete({ name });
+
+    // Lấy lại danh sách categories
+    const categories = await Category.find().sort({ createdAt: 1 });
+    res.status(200).json(categories.map(cat => cat.name));
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi khi xóa category", error });
+  }
+});
+
+/**
  * @route   POST /api/upload
  * @desc    Nhận media từ admin, đẩy lên Cloudinary, lưu URL vào MongoDB (Chỉ admin)
  */
