@@ -6,12 +6,55 @@ const multer = require('multer');
 const cors = require('cors');
 require('dotenv').config();
 
+// Environment variable validation
+const requiredEnvVars = ['MONGO_URI', 'CLOUDINARY_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET', 'ADMIN_TOKEN'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnvVars.join(', '));
+  console.error('Please set these environment variables and restart the server');
+  process.exit(1);
+}
+
+console.log('✅ Environment variables validated');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 2. Middleware
 app.use(cors()); // Cho phép Frontend truy cập API
 app.use(express.json()); // Đọc dữ liệu JSON từ request body
+
+// Multer error handling middleware
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    console.error('❌ Multer error:', {
+      field: error.field,
+      message: error.message,
+      code: error.code,
+      limit: error.limit
+    });
+    
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ message: 'File quá lớn. Tối đa 100MB được cho phép.' });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({ message: 'Quá nhiều file được tải lên.' });
+    }
+    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({ message: 'File không được mong đợi.' });
+    }
+    
+    return res.status(400).json({ message: `Lỗi upload: ${error.message}` });
+  }
+  
+  if (error.message.includes('Chỉ chấp nhận ảnh')) {
+    console.error('❌ File type error:', error.message);
+    return res.status(400).json({ message: error.message });
+  }
+  
+  next(error);
+});
 
 // Set timeout for requests
 app.use((req, res, next) => {
@@ -169,16 +212,25 @@ Media.createIndexes([
 ]);
 
 // 5. Cấu hình Cloudinary & Multer (Xử lý file ảnh)
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+console.log('☁️ Configuring Cloudinary...');
+try {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+  console.log('✅ Cloudinary configured successfully');
+} catch (error) {
+  console.error('❌ Cloudinary configuration error:', error.message);
+  process.exit(1);
+}
 
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: (req, file) => {
     const isVideo = file.mimetype.startsWith('video/');
+    console.log(`🎬 Cloudinary: Processing ${isVideo ? 'video' : 'image'} - ${file.originalname}`);
+    
     return {
       folder: "wedding_album",
       resource_type: isVideo ? 'video' : 'image',
@@ -187,25 +239,51 @@ const storage = new CloudinaryStorage({
       fetch_format: "auto",
       transformation: isVideo ? [] : [
         { width: 1920, height: 1920, crop: "limit", quality: "auto:good" }
-      ]
+      ],
+      public_id: `${Date.now()}_${file.originalname.split('.')[0]}`
     };
   },
 });
 
-const upload = multer({ 
+// Add Cloudinary upload error handling
+const multerInstance = multer({ 
   storage,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit for videos
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
+    console.log(`🔍 File type check: ${file.mimetype} (allowed: ${allowedTypes.includes(file.mimetype)})`);
+    
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
+      console.log(`❌ Rejected file type: ${file.mimetype}`);
       cb(new Error('Chỉ chấp nhận ảnh (JPG, PNG, WebP) và video (MP4, MOV, AVI)'), false);
     }
   }
 });
+
+const upload = {
+  single: (fieldName) => {
+    return (req, res, next) => {
+      multerInstance.single(fieldName)(req, res, (err) => {
+        if (err) {
+          console.error('❌ Multer/Cloudinary upload error:', {
+            message: err.message,
+            name: err.name,
+            stack: err.stack
+          });
+          return next(err);
+        }
+        console.log('✅ Cloudinary upload successful:', req.file?.filename);
+        next();
+      });
+    };
+  }
+};
+
+console.log('✅ Multer storage configured');
 
 // 6. Định nghĩa các API Endpoints
 
@@ -279,8 +357,19 @@ app.post("/api/categories", authenticateAdmin, async (req, res) => {
  * @desc    Nhận media từ admin, đẩy lên Cloudinary, lưu URL vào MongoDB (Chỉ admin)
  */
 app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, res) => {
+  console.log('📤 Upload request received');
+  console.log('📁 File info:', req.file ? {
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size,
+    filename: req.file.filename,
+    path: req.file.path
+  } : 'No file received');
+  console.log('📂 Category:', req.body.category);
+  
   try {
     if (!req.file) {
+      console.log('❌ No file in request');
       return res
         .status(400)
         .json({ message: "Không có file nào được tải lên." });
@@ -289,6 +378,8 @@ app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, r
     const { category = 'ảnh check-in' } = req.body;
     const isVideo = req.file.mimetype.startsWith('video/');
 
+    console.log(`🎬 Processing ${isVideo ? 'video' : 'image'} for category: ${category}`);
+
     const newMedia = new Media({
       url: req.file.path,
       public_id: req.file.filename,
@@ -296,10 +387,31 @@ app.post("/api/upload", authenticateAdmin, upload.single("media"), async (req, r
       category: category,
     });
 
+    console.log('💾 Saving to database...');
     await newMedia.save();
+    console.log('✅ Media saved successfully:', newMedia._id);
+    
     res.status(201).json(newMedia);
   } catch (error) {
-    res.status(500).json({ message: "Lỗi trong quá trình upload", error });
+    console.error('❌ Upload error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    // Handle specific error types
+    if (error.name === 'ValidationError') {
+      console.log('❌ Database validation error');
+      return res.status(400).json({ message: "Dữ liệu không hợp lệ", error: error.message });
+    }
+    
+    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
+      console.log('❌ Database connection error');
+      return res.status(503).json({ message: "Lỗi kết nối database", error: error.message });
+    }
+    
+    console.log('❌ General upload error');
+    res.status(500).json({ message: "Lỗi trong quá trình upload", error: error.message });
   }
 });
 
