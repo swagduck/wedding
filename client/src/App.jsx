@@ -338,6 +338,7 @@ function App() {
             setMedia(prev => prev.map(m =>
                 m._id === id ? res.data : m
             ));
+            setLikingPhotoId(null);
         } catch (err) {
             setMedia(previousMedia);
             toast.error("Không thể thả tim, vui lòng thử lại!");

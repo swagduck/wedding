@@ -135,6 +135,7 @@ mongoose
       await Media.createIndexes([
         { _id: 1 }, // Default index but ensure it exists
         { createdAt: -1 }, // For sorting by newest
+        { likes: 1 }, // For like operations
         { type: 1, createdAt: -1 }, // For filtering by type and sorting
         { category: 1, createdAt: -1 }, // For filtering by category and sorting
         { type: 1, category: 1, createdAt: -1 }, // Composite index for both filters
@@ -667,11 +668,14 @@ app.patch("/api/media/:id/like", async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy media này." });
     }
 
-    // Clear relevant cache keys
+    // Clear only relevant cache keys that might contain this media item
     const keys = cache.keys();
-    const mediaKeys = keys.filter(key => key.startsWith('media_'));
-    cache.del(mediaKeys);
-    console.log('🗑️ Cleared media cache after like');
+    const relevantKeys = keys.filter(key => 
+      key.startsWith('media_') && 
+      (key.includes('all') || key.includes('tất_cả') || key.includes('image') || key.includes('video'))
+    );
+    cache.del(relevantKeys);
+    console.log('🗑️ Cleared relevant media cache keys after like:', relevantKeys.length);
 
     res.status(200).json(media);
   } catch (error) {
