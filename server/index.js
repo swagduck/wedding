@@ -28,6 +28,9 @@ console.log('✅ Cache initialized');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy for reverse proxy deployments (Render, Heroku, etc.)
+app.set('trust proxy', true);
+
 // 2. Middleware
 app.use(compression()); // Compress responses
 app.use(cors()); // Cho phép Frontend truy cập API
