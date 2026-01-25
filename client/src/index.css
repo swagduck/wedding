@@ -478,10 +478,50 @@
             transition: transform 0.2s ease;
         }
 
+        /* Video optimizations for mobile */
+        video {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            perspective: 1000px;
+            will-change: transform;
+        }
+
+        /* Optimize image loading for mobile */
+        img {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            perspective: 1000px;
+        }
+
+        /* Reduce hover effects on mobile to prevent lag */
+        .gallery-item:hover {
+            transform: none;
+        }
+
+        .gallery-image:hover {
+            transform: none;
+            filter: none;
+        }
+
         /* Better text readability on mobile */
         body {
             font-size: 16px;
             line-height: 1.5;
+        }
+
+        /* Optimize scrolling performance */
+        * {
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+
+        /* Reduce motion for better performance */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     }
 

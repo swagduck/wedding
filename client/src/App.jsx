@@ -287,6 +287,18 @@ function App() {
         }
     };
 
+    const handleLogin = () => {
+        if (adminPassword === 'huy&y2026') {
+            setIsAdmin(true);
+            localStorage.setItem('adminToken', 'huy&y2026');
+            setShowLogin(false);
+            setAdminPassword('');
+            toast.success("Đăng nhập thành công!");
+        } else {
+            toast.error("Mật khẩu không đúng!");
+        }
+    };
+
     const handleLogout = () => {
         setIsAdmin(false);
         localStorage.removeItem('adminToken');
@@ -1262,7 +1274,7 @@ function App() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -30 }}
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                                className="group relative overflow-hidden rounded-2xl shadow-wedding-lg hover:shadow-wedding-xl transition-all duration-300 cursor-pointer bg-white"
+                                className="gallery-item group cursor-pointer"
                                 onClick={() => setZoomedImage(item)}
                             >
                                 {/* Media Container */}
@@ -1273,8 +1285,8 @@ function App() {
                                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                                             muted
                                             loop
-                                            onMouseEnter={(e) => e.target.play()}
-                                            onMouseLeave={(e) => e.target.pause()}
+                                            playsInline
+                                            preload="metadata"
                                         />
                                     ) : (
                                         <img
@@ -1389,58 +1401,60 @@ function App() {
                 }
 
                 {/* Pagination */}
-                {pagination && pagination.totalPages > 1 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex justify-center items-center gap-2 mt-8 mb-12"
-                    >
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => fetchMedia(pagination.currentPage - 1)}
-                            disabled={!pagination.hasPrevPage}
-                            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${pagination.hasPrevPage
-                                ? 'bg-wedding-blue-500 text-white hover:bg-wedding-blue-600 shadow-wedding-md'
-                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                }`}
+                {
+                    pagination && pagination.totalPages > 1 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex justify-center items-center gap-2 mt-8 mb-12"
                         >
-                            Trước
-                        </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => fetchMedia(pagination.currentPage - 1)}
+                                disabled={!pagination.hasPrevPage}
+                                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${pagination.hasPrevPage
+                                    ? 'bg-wedding-blue-500 text-white hover:bg-wedding-blue-600 shadow-wedding-md'
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                    }`}
+                            >
+                                Trước
+                            </motion.button>
 
-                        <div className="flex items-center gap-1">
-                            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
-                                <motion.button
-                                    key={page}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => fetchMedia(page)}
-                                    className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${page === pagination.currentPage
-                                        ? 'bg-wedding-gold-500 text-white shadow-wedding-md'
-                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200'
-                                        }`}
-                                >
-                                    {page}
-                                </motion.button>
-                            ))}
-                        </div>
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+                                    <motion.button
+                                        key={page}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => fetchMedia(page)}
+                                        className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${page === pagination.currentPage
+                                            ? 'bg-wedding-gold-500 text-white shadow-wedding-md'
+                                            : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200'
+                                            }`}
+                                    >
+                                        {page}
+                                    </motion.button>
+                                ))}
+                            </div>
 
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => fetchMedia(pagination.currentPage + 1)}
-                            disabled={!pagination.hasNextPage}
-                            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${pagination.hasNextPage
-                                ? 'bg-wedding-blue-500 text-white hover:bg-wedding-blue-600 shadow-wedding-md'
-                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                }`}
-                        >
-                            Sau
-                        </motion.button>
-                    </motion.div>
-                )}
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => fetchMedia(pagination.currentPage + 1)}
+                                disabled={!pagination.hasNextPage}
+                                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${pagination.hasNextPage
+                                    ? 'bg-wedding-blue-500 text-white hover:bg-wedding-blue-600 shadow-wedding-md'
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                    }`}
+                            >
+                                Sau
+                            </motion.button>
+                        </motion.div>
+                    )
+                }
 
-            </main>
+            </main >
 
             <footer className="relative bg-gradient-to-r from-wedding-blue-900 via-wedding-blue-800 to-wedding-blue-900 text-white py-16 mt-20 overflow-hidden">
                 {/* Decorative background */}
