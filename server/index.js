@@ -4,6 +4,9 @@ const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 const cors = require('cors');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const NodeCache = require('node-cache');
 require('dotenv').config();
 
 // Environment variable validation
@@ -18,12 +21,27 @@ if (missingEnvVars.length > 0) {
 
 console.log('✅ Environment variables validated');
 
+// Initialize cache
+cache = new NodeCache({ stdTTL: 300, checkperiod: 120 }); // 5 minutes cache
+console.log('✅ Cache initialized');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 2. Middleware
+app.use(compression()); // Compress responses
 app.use(cors()); // Cho phép Frontend truy cập API
 app.use(express.json()); // Đọc dữ liệu JSON từ request body
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { message: 'Quá nhiều request, vui lòng thử lại sau!' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', limiter);
 
 // Multer error handling middleware
 app.use((error, req, res, next) => {
@@ -99,11 +117,35 @@ const authenticateAdmin = (req, res, next) => {
   next();
 };
 
-// 3. Kết nối MongoDB
+// 3. Kết nối MongoDB với connection pooling
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, {
+    maxPoolSize: 10, // Maintain up to 10 socket connections
+    serverSelectionTimeoutMS: 5000, // How long to try selecting a new connection before throwing error
+    socketTimeoutMS: 45000, // How long a send or receive on a socket can take before timing out
+  })
   .then(async () => {
-    console.log("✅ Đã kết nối MongoDB thành công!");
+    console.log("✅ Đã kết nối MongoDB thành công với connection pooling!");
+    
+    // Create indexes after successful connection
+    try {
+      await Media.createIndexes([
+        { _id: 1 }, // Default index but ensure it exists
+        { createdAt: -1 }, // For sorting by newest
+        { type: 1, createdAt: -1 }, // For filtering by type and sorting
+        { category: 1, createdAt: -1 }, // For filtering by category and sorting
+        { type: 1, category: 1, createdAt: -1 }, // Composite index for both filters
+      ]);
+
+      await Category.createIndexes([
+        { name: 1 }, // For unique category names
+        { createdAt: 1 }, // For sorting
+      ]);
+
+      console.log('✅ Database indexes created/verified');
+    } catch (indexError) {
+      console.error('⚠️ Error creating indexes:', indexError.message);
+    }
     
     // Khởi tạo default categories nếu chưa có
     const defaultCategories = ['ảnh check-in', 'ảnh từng bàn', 'Videos'];
@@ -227,12 +269,7 @@ const mediaSchema = new mongoose.Schema({
 
 const Media = mongoose.model("Media", mediaSchema);
 
-// Create indexes for better performance
-Media.createIndexes([
-  { _id: 1 }, // Default index but ensure it exists
-  { createdAt: -1 }, // For sorting
-  { type: 1, category: 1 }, // For filtering
-]);
+console.log('✅ Database models initialized');
 
 // 5. Cấu hình Cloudinary & Multer (Xử lý file ảnh)
 console.log('☁️ Configuring Cloudinary...');
@@ -300,33 +337,91 @@ console.log('✅ Multer storage configured');
 
 /**
  * @route   GET /api/media
- * @desc    Lấy danh sách toàn bộ media, mới nhất xếp trên đầu
+ * @desc    Lấy danh sách media với pagination và caching
  */
 app.get("/api/media", async (req, res) => {
   try {
-    const { type, category } = req.query;
+    const { type, category, page = 1, limit = 20 } = req.query;
+    
+    // Create cache key
+    const cacheKey = `media_${type || 'all'}_${category || 'all'}_${page}_${limit}`;
+    
+    // Try to get from cache first
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      console.log('📋 Cache hit for:', cacheKey);
+      return res.status(200).json(cachedData);
+    }
+    
+    // Build filter
     let filter = {};
+    if (type && type !== 'tất cả') filter.type = type;
+    if (category && category !== 'tất cả') filter.category = category;
     
-    if (type) filter.type = type;
-    if (category) filter.category = category;
+    // Calculate pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
     
-    const media = await Media.find(filter).sort({ createdAt: -1 });
-    res.status(200).json(media);
+    // Execute queries in parallel
+    const [media, totalCount] = await Promise.all([
+      Media.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(), // Use lean for better performance
+      Media.countDocuments(filter)
+    ]);
+    
+    const result = {
+      media,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        totalItems: totalCount,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < Math.ceil(totalCount / limitNum),
+        hasPrevPage: pageNum > 1
+      }
+    };
+    
+    // Cache the result
+    cache.set(cacheKey, result);
+    console.log('💾 Cached data for:', cacheKey);
+    
+    res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ message: "Lỗi khi lấy danh sách media", error });
+    console.error('❌ Error fetching media:', error);
+    res.status(500).json({ message: "Lỗi khi lấy danh sách media", error: error.message });
   }
 });
 
 /**
  * @route   GET /api/categories
- * @desc    Lấy danh sách tất cả categories
+ * @desc    Lấy danh sách tất cả categories với caching
  */
 app.get("/api/categories", async (req, res) => {
   try {
-    const categories = await Category.find().sort({ createdAt: 1 });
-    res.status(200).json(categories.map(cat => cat.name));
+    // Try cache first
+    const cacheKey = 'categories_all';
+    const cachedCategories = cache.get(cacheKey);
+    
+    if (cachedCategories) {
+      console.log('📋 Cache hit for categories');
+      return res.status(200).json(cachedCategories);
+    }
+    
+    const categories = await Category.find().sort({ createdAt: 1 }).lean();
+    const result = categories.map(cat => cat.name);
+    
+    // Cache for 10 minutes (categories don't change often)
+    cache.set(cacheKey, result, 600);
+    console.log('💾 Cached categories');
+    
+    res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ message: "Lỗi khi lấy danh sách categories", error });
+    console.error('❌ Error fetching categories:', error);
+    res.status(500).json({ message: "Lỗi khi lấy danh sách categories", error: error.message });
   }
 });
 
@@ -355,9 +450,18 @@ app.post("/api/categories", authenticateAdmin, async (req, res) => {
 
     await newCategory.save();
 
+    // Clear categories cache
+    cache.del('categories_all');
+    console.log('🗑️ Cleared categories cache');
+
     // Lấy lại danh sách categories
-    const categories = await Category.find().sort({ createdAt: 1 });
-    res.status(201).json(categories.map(cat => cat.name));
+    const categories = await Category.find().sort({ createdAt: 1 }).lean();
+    const result = categories.map(cat => cat.name);
+    
+    // Update cache
+    cache.set('categories_all', result, 600);
+    
+    res.status(201).json(result);
   } catch (error) {
     res.status(500).json({ message: "Lỗi khi tạo category", error });
   }
@@ -388,9 +492,18 @@ app.delete("/api/categories/:name", authenticateAdmin, async (req, res) => {
     // Xóa category
     await Category.findOneAndDelete({ name });
 
+    // Clear categories cache
+    cache.del('categories_all');
+    console.log('🗑️ Cleared categories cache');
+
     // Lấy lại danh sách categories
-    const categories = await Category.find().sort({ createdAt: 1 });
-    res.status(200).json(categories.map(cat => cat.name));
+    const categories = await Category.find().sort({ createdAt: 1 }).lean();
+    const result = categories.map(cat => cat.name);
+    
+    // Update cache
+    cache.set('categories_all', result, 600);
+    
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: "Lỗi khi xóa category", error });
   }
@@ -499,6 +612,12 @@ app.post("/api/upload", authenticateAdmin, (req, res, next) => {
     await newMedia.save();
     console.log('✅ Media saved successfully:', newMedia._id);
     
+    // Clear all media cache
+    const keys = cache.keys();
+    const mediaKeys = keys.filter(key => key.startsWith('media_'));
+    cache.del(mediaKeys);
+    console.log('🗑️ Cleared media cache keys:', mediaKeys.length);
+    
     res.status(201).json(newMedia);
   } catch (error) {
     console.error('❌ Upload error details:', {
@@ -545,6 +664,12 @@ app.patch("/api/media/:id/like", async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy media này." });
     }
 
+    // Clear relevant cache keys
+    const keys = cache.keys();
+    const mediaKeys = keys.filter(key => key.startsWith('media_'));
+    cache.del(mediaKeys);
+    console.log('🗑️ Cleared media cache after like');
+
     res.status(200).json(media);
   } catch (error) {
     console.error('Like error:', error);
@@ -584,6 +709,12 @@ app.patch("/api/media/:id/category", authenticateAdmin, async (req, res) => {
       { new: true }
     );
 
+    // Clear relevant cache keys
+    const keys = cache.keys();
+    const mediaKeys = keys.filter(key => key.startsWith('media_'));
+    cache.del(mediaKeys);
+    console.log('🗑️ Cleared media cache after category update');
+
     res.status(200).json(updatedMedia);
   } catch (error) {
     console.error('Update category error:', error);
@@ -610,6 +741,12 @@ app.delete("/api/media/:id", authenticateAdmin, async (req, res) => {
 
     // Xóa media khỏi MongoDB
     await Media.findByIdAndDelete(id);
+
+    // Clear relevant cache keys
+    const keys = cache.keys();
+    const mediaKeys = keys.filter(key => key.startsWith('media_'));
+    cache.del(mediaKeys);
+    console.log('🗑️ Cleared media cache after delete');
 
     res.status(200).json({ message: "Đã xóa media thành công." });
   } catch (error) {

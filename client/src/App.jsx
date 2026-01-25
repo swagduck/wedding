@@ -30,6 +30,8 @@ function App() {
     const [editingPhoto, setEditingPhoto] = useState(null);
     const [newCategoryForPhoto, setNewCategoryForPhoto] = useState('');
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(null);
+    const [pagination, setPagination] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         fetchMedia();
@@ -41,14 +43,18 @@ function App() {
         }
     }, []);
 
-    const fetchMedia = async () => {
+    const fetchMedia = async (page = 1) => {
         try {
             const params = new URLSearchParams();
             if (filterType !== 'tất cả') params.append('type', filterType);
             if (filterCategory !== 'tất cả') params.append('category', filterCategory);
+            params.append('page', page);
+            params.append('limit', 20);
 
             const res = await axios.get(`${API_URL}/media?${params}`);
-            setMedia(res.data);
+            setMedia(res.data.media);
+            setPagination(res.data.pagination);
+            setCurrentPage(page);
         } catch (err) {
             toast.error("Không thể tải media!");
         }
@@ -64,7 +70,7 @@ function App() {
     };
 
     useEffect(() => {
-        fetchMedia();
+        fetchMedia(1); // Reset to first page when filters change
     }, [filterType, filterCategory]);
 
     // Close dropdown when clicking outside
@@ -156,7 +162,7 @@ function App() {
             await Promise.all(uploadPromises);
 
             toast.success(`Đã tải thành công ${files.length} media!`);
-            fetchMedia();
+            fetchMedia(1); // Reset to first page after upload
         } catch (err) {
             toast.error("Tải media thất bại! Bạn cần quyền admin.");
             console.error(err);
@@ -199,7 +205,7 @@ function App() {
             });
 
             toast.success("Tải media thành công!");
-            fetchMedia();
+            fetchMedia(1); // Reset to first page after upload
         } catch (err) {
             toast.error("Tải media thất bại! Bạn cần quyền admin.");
             console.error(err);
@@ -1249,119 +1255,113 @@ function App() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
                     <AnimatePresence>
-                        {media
-                            .filter(item => {
-                                const typeMatch = filterType === 'tất cả' || item.type === filterType;
-                                const categoryMatch = filterCategory === 'tất cả' || item.category === filterCategory;
-                                return typeMatch && categoryMatch;
-                            })
-                            .map((item, index) => (
-                                <motion.div
-                                    key={item._id}
-                                    initial={{ opacity: 0, y: 30 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -30 }}
-                                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                                    className="group relative overflow-hidden rounded-2xl shadow-wedding-lg hover:shadow-wedding-xl transition-all duration-300 cursor-pointer bg-white"
-                                    onClick={() => setZoomedImage(item)}
-                                >
-                                    {/* Media Container */}
-                                    <div className="aspect-square relative overflow-hidden">
-                                        {item.type === 'video' ? (
-                                            <video
-                                                src={item.url}
-                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                                muted
-                                                loop
-                                                onMouseEnter={(e) => e.target.play()}
-                                                onMouseLeave={(e) => e.target.pause()}
-                                            />
-                                        ) : (
-                                            <img
-                                                src={item.url}
-                                                alt={item.category}
-                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                            />
-                                        )}
+                        {media.map((item, index) => (
+                            <motion.div
+                                key={item._id}
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -30 }}
+                                transition={{ duration: 0.5, delay: index * 0.1 }}
+                                className="group relative overflow-hidden rounded-2xl shadow-wedding-lg hover:shadow-wedding-xl transition-all duration-300 cursor-pointer bg-white"
+                                onClick={() => setZoomedImage(item)}
+                            >
+                                {/* Media Container */}
+                                <div className="aspect-square relative overflow-hidden">
+                                    {item.type === 'video' ? (
+                                        <video
+                                            src={item.url}
+                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                            muted
+                                            loop
+                                            onMouseEnter={(e) => e.target.play()}
+                                            onMouseLeave={(e) => e.target.pause()}
+                                        />
+                                    ) : (
+                                        <img
+                                            src={item.url}
+                                            alt={item.category}
+                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                        />
+                                    )}
 
-                                        {/* Video Indicator */}
-                                        {item.type === 'video' && (
-                                            <div className="absolute top-3 left-3 bg-wedding-gold-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                                                <Video size={12} />
-                                                <span>Video</span>
-                                            </div>
-                                        )}
+                                    {/* Video Indicator */}
+                                    {item.type === 'video' && (
+                                        <div className="absolute top-3 left-3 bg-wedding-gold-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                            <Video size={12} />
+                                            <span>Video</span>
+                                        </div>
+                                    )}
 
-                                        {/* Overlay */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                    {/* Overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                </div>
+
+                                {/* Content */}
+                                <div className="p-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-medium text-wedding-blue-600 bg-wedding-blue-50 px-2 py-1 rounded-full">
+                                            {item.category}
+                                        </span>
+                                        <span className="text-xs text-wedding-blue-500">
+                                            {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                                        </span>
                                     </div>
 
-                                    {/* Content */}
-                                    <div className="p-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-xs font-medium text-wedding-blue-600 bg-wedding-blue-50 px-2 py-1 rounded-full">
-                                                {item.category}
-                                            </span>
-                                            <span className="text-xs text-wedding-blue-500">
-                                                {new Date(item.createdAt).toLocaleDateString('vi-VN')}
-                                            </span>
-                                        </div>
-
-                                        {/* Actions */}
-                                        <div className="flex justify-between items-center">
-                                            <motion.button
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleLike(item._id);
-                                                }}
-                                                disabled={likingPhotoId === item._id}
-                                                className={`flex items-center gap-1 px-3 py-1 rounded-full transition-all duration-300 ${likingPhotoId === item._id
-                                                    ? 'bg-gray-200 cursor-not-allowed'
-                                                    : 'bg-wedding-blue-50 hover:bg-red-50 hover:text-red-500 text-wedding-blue-600'
-                                                    }`}
-                                            >
-                                                {likingPhotoId === item._id ? (
-                                                    <Loader2 size={14} className="animate-spin" />
-                                                ) : (
-                                                    <Heart size={14} className={item.likes > 0 ? "text-red-400 fill-current" : ""} />
-                                                )}
-                                                <span className="text-xs font-bold">{item.likes}</span>
-                                            </motion.button>
-
-                                            {isAdmin && (
-                                                <>
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setEditingPhoto(item);
-                                                            setNewCategoryForPhoto(item.category);
-                                                        }}
-                                                        className="text-blue-400 hover:text-blue-600 transition-colors p-1"
-                                                        title="Sửa danh mục"
-                                                    >
-                                                        <Edit size={14} />
-                                                    </motion.button>
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDelete(item._id);
-                                                        }}
-                                                        className="text-red-400 hover:text-red-600 transition-colors p-1"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </motion.button>
-                                                </>
+                                    {/* Actions */}
+                                    <div className="flex justify-between items-center">
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleLike(item._id);
+                                            }}
+                                            disabled={likingPhotoId === item._id}
+                                            className={`flex items-center gap-1 px-3 py-1 rounded-full transition-all duration-300 ${likingPhotoId === item._id
+                                                ? 'bg-gray-200 cursor-not-allowed'
+                                                : 'bg-wedding-blue-50 hover:bg-red-50 hover:text-red-500 text-wedding-blue-600'
+                                                }`}
+                                        >
+                                            {likingPhotoId === item._id ? (
+                                                <Loader2 size={14} className="animate-spin" />
+                                            ) : (
+                                                <Heart size={14} className={item.likes > 0 ? "text-red-400 fill-current" : ""} />
                                             )}
-                                        </div>
+                                            <span className="text-xs font-bold">{item.likes}</span>
+                                        </motion.button>
+
+                                        {isAdmin && (
+                                            <>
+                                                <motion.button
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditingPhoto(item);
+                                                        setNewCategoryForPhoto(item.category);
+                                                    }}
+                                                    className="text-blue-400 hover:text-blue-600 transition-colors p-1"
+                                                    title="Sửa danh mục"
+                                                >
+                                                    <Edit size={14} />
+                                                </motion.button>
+                                                <motion.button
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(item._id);
+                                                    }}
+                                                    className="text-red-400 hover:text-red-600 transition-colors p-1"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </motion.button>
+                                            </>
+                                        )}
                                     </div>
-                                </motion.div>
-                            ))}
+                                </div>
+                            </motion.div>
+                        ))}
                     </AnimatePresence>
                 </div>
 
@@ -1387,6 +1387,72 @@ function App() {
                         </motion.div>
                     )
                 }
+
+                {/* Pagination */}
+                {pagination && pagination.totalPages > 1 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex justify-center items-center gap-2 mt-8 mb-12"
+                    >
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => fetchMedia(pagination.currentPage - 1)}
+                            disabled={!pagination.hasPrevPage}
+                            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${pagination.hasPrevPage
+                                ? 'bg-wedding-blue-500 text-white hover:bg-wedding-blue-600 shadow-wedding-md'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                }`}
+                        >
+                            Trước
+                        </motion.button>
+
+                        <div className="flex items-center gap-1">
+                            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+                                <motion.button
+                                    key={page}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => fetchMedia(page)}
+                                    className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${page === pagination.currentPage
+                                        ? 'bg-wedding-gold-500 text-white shadow-wedding-md'
+                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200'
+                                        }`}
+                                >
+                                    {page}
+                                </motion.button>
+                            ))}
+                        </div>
+
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => fetchMedia(pagination.currentPage + 1)}
+                            disabled={!pagination.hasNextPage}
+                            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${pagination.hasNextPage
+                                ? 'bg-wedding-blue-500 text-white hover:bg-wedding-blue-600 shadow-wedding-md'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                }`}
+                        >
+                            Sau
+                        </motion.button>
+                    </motion.div>
+                )}
+
+                {/* Pagination Info */}
+                {pagination && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center mb-8"
+                    >
+                        <p className="text-sm text-wedding-blue-600">
+                            Hiển thị {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)}
+                            {' '}trong tổng số {pagination.totalItems} media
+                        </p>
+                    </motion.div>
+                )}
             </main>
 
             <footer className="relative bg-gradient-to-r from-wedding-blue-900 via-wedding-blue-800 to-wedding-blue-900 text-white py-16 mt-20 overflow-hidden">
