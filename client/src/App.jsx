@@ -1274,27 +1274,39 @@ function App() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -30 }}
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                                className="gallery-item group cursor-pointer"
+                                className="gallery-item group cursor-pointer transform transition-all duration-700 hover:scale-105 rounded-2xl overflow-hidden"
                                 onClick={() => setZoomedImage(item)}
                             >
                                 {/* Media Container */}
-                                <div className="aspect-square relative overflow-hidden">
-                                    {item.type === 'video' ? (
-                                        <video
-                                            src={item.url}
-                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                            muted
-                                            loop
-                                            playsInline
-                                            preload="metadata"
-                                        />
-                                    ) : (
-                                        <img
-                                            src={item.url}
-                                            alt={item.category}
-                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                        />
-                                    )}
+                                <div className="aspect-square relative overflow-hidden rounded-2xl shadow-2xl group-hover:shadow-3xl transition-all duration-500 border-2 border-white/30 backdrop-blur-sm bg-gradient-to-br from-white/5 to-transparent">
+                                    {/* Decorative corner elements */}
+                                    <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-wedding-gold-400/40 rounded-tl-lg" />
+                                    <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-wedding-gold-400/40 rounded-tr-lg" />
+                                    <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-wedding-gold-400/40 rounded-bl-lg" />
+                                    <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-wedding-gold-400/40 rounded-br-lg" />
+
+                                    {/* Inner frame */}
+                                    <div className="absolute inset-1 border border-wedding-gold-300/20 rounded-xl pointer-events-none" />
+
+                                    {/* Image wrapper with proper rounding */}
+                                    <div className="absolute inset-0 rounded-xl overflow-hidden">
+                                        {item.type === 'video' ? (
+                                            <video
+                                                src={item.url}
+                                                className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+                                                muted
+                                                loop
+                                                playsInline
+                                                preload="metadata"
+                                            />
+                                        ) : (
+                                            <img
+                                                src={item.url}
+                                                alt={item.category}
+                                                className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+                                            />
+                                        )}
+                                    </div>
 
                                     {/* Video Indicator */}
                                     {item.type === 'video' && (
@@ -1304,23 +1316,26 @@ function App() {
                                         </div>
                                     )}
 
-                                    {/* Overlay */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                    {/* Enhanced Overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-xl">
+                                        {/* Decorative overlay pattern */}
+                                        <div className="absolute inset-0 bg-gradient-to-br from-wedding-gold-400/20 via-transparent to-wedding-blue-400/20 rounded-xl" />
+                                    </div>
                                 </div>
 
-                                {/* Content */}
-                                <div className="p-4">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-xs font-medium text-wedding-blue-600 bg-wedding-blue-50 px-2 py-1 rounded-full">
+                                {/* Enhanced Content */}
+                                <div className="p-4 bg-gradient-to-br from-white/95 to-wedding-blue-50/90 backdrop-blur-md rounded-b-2xl border-x border-b border-white/40 shadow-lg">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="text-xs font-semibold text-wedding-blue-700 bg-gradient-to-r from-wedding-gold-100 to-wedding-blue-100 px-3 py-1.5 rounded-full border border-wedding-gold-300/40 shadow-sm">
                                             {item.category}
                                         </span>
-                                        <span className="text-xs text-wedding-blue-500">
+                                        <span className="text-xs text-wedding-blue-600 font-medium bg-white/70 px-2 py-1 rounded-full">
                                             {new Date(item.createdAt).toLocaleDateString('vi-VN')}
                                         </span>
                                     </div>
 
-                                    {/* Actions */}
-                                    <div className="flex justify-between items-center">
+                                    {/* Enhanced Actions */}
+                                    <div className="flex justify-between items-center gap-2">
                                         <motion.button
                                             whileHover={{ scale: 1.1 }}
                                             whileTap={{ scale: 0.9 }}
@@ -1329,21 +1344,21 @@ function App() {
                                                 handleLike(item._id);
                                             }}
                                             disabled={likingPhotoId === item._id}
-                                            className={`flex items-center gap-1 px-3 py-1 rounded-full transition-all duration-300 ${likingPhotoId === item._id
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 shadow-md hover:shadow-lg ${likingPhotoId === item._id
                                                 ? 'bg-gray-200 cursor-not-allowed'
-                                                : 'bg-wedding-blue-50 hover:bg-red-50 hover:text-red-500 text-wedding-blue-600'
+                                                : 'bg-gradient-to-r from-pink-50 to-red-50 hover:from-pink-100 hover:to-red-100 text-pink-600 hover:text-red-600 border border-pink-200/50'
                                                 }`}
                                         >
                                             {likingPhotoId === item._id ? (
                                                 <Loader2 size={14} className="animate-spin" />
                                             ) : (
-                                                <Heart size={14} className={item.likes > 0 ? "text-red-400 fill-current" : ""} />
+                                                <Heart size={14} className={item.likes > 0 ? "text-red-500 fill-current animate-pulse" : ""} />
                                             )}
                                             <span className="text-xs font-bold">{item.likes}</span>
                                         </motion.button>
 
                                         {isAdmin && (
-                                            <>
+                                            <div className="flex items-center gap-1">
                                                 <motion.button
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
@@ -1352,7 +1367,7 @@ function App() {
                                                         setEditingPhoto(item);
                                                         setNewCategoryForPhoto(item.category);
                                                     }}
-                                                    className="text-blue-400 hover:text-blue-600 transition-colors p-1"
+                                                    className="text-blue-500 hover:text-blue-700 transition-colors p-1.5 bg-blue-50 hover:bg-blue-100 rounded-lg shadow-sm hover:shadow-md"
                                                     title="Sửa danh mục"
                                                 >
                                                     <Edit size={14} />
@@ -1364,11 +1379,11 @@ function App() {
                                                         e.stopPropagation();
                                                         handleDelete(item._id);
                                                     }}
-                                                    className="text-red-400 hover:text-red-600 transition-colors p-1"
+                                                    className="text-red-500 hover:text-red-700 transition-colors p-1.5 bg-red-50 hover:bg-red-100 rounded-lg shadow-sm hover:shadow-md"
                                                 >
                                                     <Trash2 size={14} />
                                                 </motion.button>
-                                            </>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
