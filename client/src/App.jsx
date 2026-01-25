@@ -1440,19 +1440,6 @@ function App() {
                     </motion.div>
                 )}
 
-                {/* Pagination Info */}
-                {pagination && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-center mb-8"
-                    >
-                        <p className="text-sm text-wedding-blue-600">
-                            Hiển thị {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)}
-                            {' '}trong tổng số {pagination.totalItems} media
-                        </p>
-                    </motion.div>
-                )}
             </main>
 
             <footer className="relative bg-gradient-to-r from-wedding-blue-900 via-wedding-blue-800 to-wedding-blue-900 text-white py-16 mt-20 overflow-hidden">
