@@ -1,9 +1,56 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
+
+// Lazy loading image component
+const LazyImage = ({ src, alt, className, onClick }) => {
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [isInView, setIsInView] = useState(false);
+    const imgRef = useRef();
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsInView(true);
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (imgRef.current) {
+            observer.observe(imgRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <div ref={imgRef} className={className} onClick={onClick}>
+            {isInView && (
+                <img
+                    src={src}
+                    alt={alt}
+                    className="w-full h-full object-cover transition-all duration-300"
+                    onLoad={() => setIsLoaded(true)}
+                    style={{
+                        opacity: isLoaded ? 1 : 0,
+                        filter: isLoaded ? 'none' : 'blur(5px)'
+                    }}
+                />
+            )}
+            {!isLoaded && isInView && (
+                <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center">
+                    <Loader2 className="animate-spin text-gray-400" size={24} />
+                </div>
+            )}
+        </div>
+    );
+};
 
 const API_URL = import.meta.env.PROD
     ? 'https://wedding-f35z.onrender.com/api'
@@ -31,7 +78,71 @@ function App() {
     const [newCategoryForPhoto, setNewCategoryForPhoto] = useState('');
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(null);
     const [pagination, setPagination] = useState(null);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    const fetchCategories = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/categories`);
+            setCategories(res.data);
+        } catch (err) {
+            toast.error("Không thể tải danh mục!");
+        }
+    };
+
+    const loadMore = useCallback(() => {
+        if (!hasMore || loadingMore) return;
+
+        setLoadingMore(true);
+        const nextPage = (pagination?.currentPage || 1) + 1;
+        fetchMedia(nextPage, true).finally(() => {
+            setLoadingMore(false);
+        });
+    }, [hasMore, loadingMore, pagination]);
+
+    // Register service worker
+    useEffect(() => {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => console.log('SW registered'))
+                .catch(error => console.log('SW registration failed'));
+        }
+    }, []);
+
+    // Infinite scroll observer
+    useEffect(() => {
+        if (!hasMore || loadingMore) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    loadMore();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        const trigger = document.getElementById('load-more-trigger');
+        if (trigger) {
+            observer.observe(trigger);
+        }
+
+        return () => observer.disconnect();
+    }, [hasMore, loadingMore, loadMore]);
+
+    // Detect mobile device
+    useEffect(() => {
+        const checkMobile = () => {
+            const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                window.innerWidth <= 640;
+            setIsMobile(isMobileDevice);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         fetchMedia();
@@ -43,7 +154,7 @@ function App() {
         }
     }, []);
 
-    const fetchMedia = async (page = 1) => {
+    const fetchMedia = async (page = 1, append = false) => {
         try {
             const params = new URLSearchParams();
             if (filterType !== 'tất cả') params.append('type', filterType);
@@ -52,20 +163,17 @@ function App() {
             params.append('limit', 20);
 
             const res = await axios.get(`${API_URL}/media?${params}`);
-            setMedia(res.data.media);
+
+            if (append) {
+                setMedia(prev => [...prev, ...res.data.media]);
+            } else {
+                setMedia(res.data.media);
+            }
+
             setPagination(res.data.pagination);
-            setCurrentPage(page);
+            setHasMore(res.data.pagination?.hasNextPage || false);
         } catch (err) {
             toast.error("Không thể tải media!");
-        }
-    };
-
-    const fetchCategories = async () => {
-        try {
-            const res = await axios.get(`${API_URL}/categories`);
-            setCategories(res.data);
-        } catch (err) {
-            toast.error("Không thể tải danh mục!");
         }
     };
 
@@ -392,48 +500,52 @@ function App() {
 
     return (
         <div className="min-h-screen relative overflow-hidden">
-            {/* Enhanced Floating Background */}
-            <div className="floating-hearts">
-                {[...Array(12)].map((_, i) => (
-                    <Heart
-                        key={`heart-${i}`}
-                        size={15 + Math.random() * 25}
-                        className="heart"
-                        style={{
-                            left: `${Math.random() * 100}%`,
-                            animationDelay: `${Math.random() * 8}s`,
-                            animationDuration: `${6 + Math.random() * 6}s`
-                        }}
-                    />
-                ))}
-                {[...Array(6)].map((_, i) => (
-                    <Star
-                        key={`star-${i}`}
-                        size={12 + Math.random() * 18}
-                        className="heart sparkle"
-                        style={{
-                            left: `${Math.random() * 100}%`,
-                            animationDuration: `${4 + Math.random() * 4}s`,
-                            color: 'rgba(2, 132, 199, 0.3)'
-                        }}
-                    />
-                ))}
-            </div>
+            {/* Enhanced Floating Background - Disabled on Mobile */}
+            {!isMobile && (
+                <>
+                    <div className="floating-hearts">
+                        {[...Array(12)].map((_, i) => (
+                            <Heart
+                                key={`heart-${i}`}
+                                size={15 + Math.random() * 25}
+                                className="heart"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    animationDelay: `${Math.random() * 8}s`,
+                                    animationDuration: `${6 + Math.random() * 6}s`
+                                }}
+                            />
+                        ))}
+                        {[...Array(6)].map((_, i) => (
+                            <Star
+                                key={`star-${i}`}
+                                size={12 + Math.random() * 18}
+                                className="heart sparkle"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    animationDuration: `${4 + Math.random() * 4}s`,
+                                    color: 'rgba(2, 132, 199, 0.3)'
+                                }}
+                            />
+                        ))}
+                    </div>
 
-            {/* Floating Particles */}
-            <div className="floating-particles">
-                {[...Array(20)].map((_, i) => (
-                    <div
-                        key={`particle-${i}`}
-                        className="particle"
-                        style={{
-                            left: `${Math.random() * 100}%`,
-                            animationDelay: `${Math.random() * 15}s`,
-                            animationDuration: `${10 + Math.random() * 10}s`
-                        }}
-                    />
-                ))}
-            </div>
+                    {/* Floating Particles */}
+                    <div className="floating-particles">
+                        {[...Array(20)].map((_, i) => (
+                            <div
+                                key={`particle-${i}`}
+                                className="particle"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    animationDelay: `${Math.random() * 15}s`,
+                                    animationDuration: `${10 + Math.random() * 10}s`
+                                }}
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
 
             <Toaster position="top-center" />
             <header className="relative h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center wedding-gradient text-white overflow-hidden">
@@ -1270,11 +1382,14 @@ function App() {
                         {media.map((item, index) => (
                             <motion.div
                                 key={item._id}
-                                initial={{ opacity: 0, y: 30 }}
+                                initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -30 }}
-                                transition={{ duration: 0.5, delay: index * 0.1 }}
-                                className="gallery-item group cursor-pointer transform transition-all duration-700 hover:scale-105 rounded-2xl overflow-hidden"
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{
+                                    duration: window.innerWidth <= 640 ? 0.2 : 0.5,
+                                    delay: window.innerWidth <= 640 ? 0 : index * 0.05
+                                }}
+                                className="gallery-item group cursor-pointer transform transition-all duration-300 hover:scale-105 rounded-2xl overflow-hidden"
                                 onClick={() => setZoomedImage(item)}
                             >
                                 {/* Media Container */}
@@ -1300,7 +1415,7 @@ function App() {
                                                 preload="metadata"
                                             />
                                         ) : (
-                                            <img
+                                            <LazyImage
                                                 src={item.url}
                                                 alt={item.category}
                                                 className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
@@ -1415,59 +1530,17 @@ function App() {
                     )
                 }
 
-                {/* Pagination */}
-                {
-                    pagination && pagination.totalPages > 1 && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex justify-center items-center gap-2 mt-8 mb-12"
-                        >
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => fetchMedia(pagination.currentPage - 1)}
-                                disabled={!pagination.hasPrevPage}
-                                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${pagination.hasPrevPage
-                                    ? 'bg-wedding-blue-500 text-white hover:bg-wedding-blue-600 shadow-wedding-md'
-                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                    }`}
-                            >
-                                Trước
-                            </motion.button>
-
-                            <div className="flex items-center gap-1">
-                                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
-                                    <motion.button
-                                        key={page}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={() => fetchMedia(page)}
-                                        className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${page === pagination.currentPage
-                                            ? 'bg-wedding-gold-500 text-white shadow-wedding-md'
-                                            : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200'
-                                            }`}
-                                    >
-                                        {page}
-                                    </motion.button>
-                                ))}
+                {/* Infinite Scroll Trigger */}
+                {hasMore && (
+                    <div id="load-more-trigger" className="flex justify-center items-center py-8">
+                        {loadingMore && (
+                            <div className="flex items-center gap-2 text-wedding-blue-600">
+                                <Loader2 className="animate-spin" size={20} />
+                                <span>Đang tải thêm...</span>
                             </div>
-
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => fetchMedia(pagination.currentPage + 1)}
-                                disabled={!pagination.hasNextPage}
-                                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${pagination.hasNextPage
-                                    ? 'bg-wedding-blue-500 text-white hover:bg-wedding-blue-600 shadow-wedding-md'
-                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                    }`}
-                            >
-                                Sau
-                            </motion.button>
-                        </motion.div>
-                    )
-                }
+                        )}
+                    </div>
+                )}
 
             </main >
 

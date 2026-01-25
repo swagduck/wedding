@@ -479,14 +479,18 @@
             margin: 0.5rem;
         }
 
-        /* Optimize animations for mobile performance */
-        .floating-hearts {
-            display: none;
+        /* Disable performance-heavy animations on mobile */
+        .floating-hearts,
+        .floating-particles {
+            display: none !important;
         }
 
         /* Simplified animations on mobile */
         .gallery-item {
             transition: transform 0.2s ease;
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
         }
 
         /* Video optimizations for mobile */
@@ -507,11 +511,24 @@
         /* Reduce hover effects on mobile to prevent lag */
         .gallery-item:hover {
             transform: none;
+            box-shadow: 0 4px 8px rgba(2, 132, 199, 0.1);
         }
 
         .gallery-image:hover {
             transform: none;
             filter: none;
+        }
+
+        /* Disable complex animations on mobile */
+        .shimmer-text,
+        .rotate-scale,
+        .pulse-glow,
+        .shimmer-gold,
+        .floating,
+        .wiggle,
+        .heartbeat,
+        .sparkle {
+            animation: none !important;
         }
 
         /* Better text readability on mobile */

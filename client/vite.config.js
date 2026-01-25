@@ -13,6 +13,17 @@ export default defineConfig({
   build: {
     outDir: "dist",
     assetsDir: "assets",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          framer: ['framer-motion'],
+          icons: ['lucide-react'],
+          utils: ['axios', 'react-hot-toast', 'qrcode']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
   },
   define: {
     __APP_VERSION__: JSON.stringify(new Date().getTime()),
