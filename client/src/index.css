@@ -401,6 +401,9 @@
         min-height: 44px;
         transform-origin: center;
         will-change: transform, box-shadow, filter;
+        content-visibility: auto;
+        contain: layout paint style;
+        contain-intrinsic-size: 320px 420px;
         filter: drop-shadow(0 4px 8px rgba(2, 132, 199, 0.1));
     }
 

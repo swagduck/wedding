@@ -22,7 +22,7 @@ if (missingEnvVars.length > 0) {
 console.log('✅ Environment variables validated');
 
 // Initialize cache
-cache = new NodeCache({ stdTTL: 300, checkperiod: 120 }); // 5 minutes cache
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 120 }); // 5 minutes cache
 console.log('✅ Cache initialized');
 
 const app = express();
@@ -337,6 +337,60 @@ const videoUpload = multer({
 
 console.log('✅ Multer storage configured');
 
+const isCloudinaryUrl = (url) =>
+  typeof url === 'string' && url.includes('res.cloudinary.com/');
+
+const buildCloudinaryImageUrl = (publicId, { size } = {}) => {
+  if (!publicId) return null;
+  const s = size || 640;
+  return cloudinary.url(publicId, {
+    secure: true,
+    resource_type: 'image',
+    transformation: [
+      {
+        width: s,
+        height: s,
+        crop: 'fill',
+        gravity: 'auto',
+        quality: 'auto:good',
+        fetch_format: 'auto',
+        dpr: 'auto',
+      },
+    ],
+  });
+};
+
+const buildCloudinaryImageSrcSet = (publicId) => {
+  if (!publicId) return null;
+  const widths = [240, 320, 480, 640, 800, 1024];
+  return widths
+    .map((w) => `${buildCloudinaryImageUrl(publicId, { size: w })} ${w}w`)
+    .join(', ');
+};
+
+const buildCloudinaryVideoPosterUrl = (publicId, { size } = {}) => {
+  if (!publicId) return null;
+  const s = size || 640;
+  // Cloudinary will extract a frame for the poster image.
+  return cloudinary.url(publicId, {
+    secure: true,
+    resource_type: 'video',
+    format: 'jpg',
+    transformation: [
+      {
+        start_offset: 0,
+        width: s,
+        height: s,
+        crop: 'fill',
+        gravity: 'auto',
+        quality: 'auto:good',
+        fetch_format: 'auto',
+        dpr: 'auto',
+      },
+    ],
+  });
+};
+
 // 6. Định nghĩa các API Endpoints
 
 /**
@@ -376,9 +430,30 @@ app.get("/api/media", async (req, res) => {
         .lean(), // Use lean for better performance
       Media.countDocuments(filter)
     ]);
+
+    const enhancedMedia = media.map((m) => {
+      const base = m;
+
+      if (base.type === 'image' && isCloudinaryUrl(base.url) && base.public_id) {
+        return {
+          ...base,
+          thumbUrl: buildCloudinaryImageUrl(base.public_id, { size: 640 }),
+          srcSet: buildCloudinaryImageSrcSet(base.public_id),
+        };
+      }
+
+      if (base.type === 'video' && isCloudinaryUrl(base.url) && base.public_id) {
+        return {
+          ...base,
+          posterUrl: buildCloudinaryVideoPosterUrl(base.public_id, { size: 640 }),
+        };
+      }
+
+      return base;
+    });
     
     const result = {
-      media,
+      media: enhancedMedia,
       pagination: {
         currentPage: pageNum,
         totalPages: Math.ceil(totalCount / limitNum),

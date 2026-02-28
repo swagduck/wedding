@@ -1,56 +1,51 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 
-// Lazy loading image component
-const LazyImage = ({ src, alt, className, onClick }) => {
-    const [isLoaded, setIsLoaded] = useState(false);
-    const [isInView, setIsInView] = useState(false);
-    const imgRef = useRef();
+const LazyImage = React.memo(
+    ({
+        src,
+        srcSet,
+        sizes,
+        alt,
+        wrapperClassName,
+        imgClassName,
+        loading = 'lazy',
+        fetchPriority = 'auto',
+        onClick,
+    }) => {
+        const [isLoaded, setIsLoaded] = useState(false);
 
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setIsInView(true);
-                    observer.disconnect();
-                }
-            },
-            { threshold: 0.1 }
-        );
-
-        if (imgRef.current) {
-            observer.observe(imgRef.current);
-        }
-
-        return () => observer.disconnect();
-    }, []);
-
-    return (
-        <div ref={imgRef} className={className} onClick={onClick}>
-            {isInView && (
+        return (
+            <div className={`relative ${wrapperClassName || ''}`} onClick={onClick}>
                 <img
                     src={src}
+                    srcSet={srcSet}
+                    sizes={sizes}
                     alt={alt}
-                    className="w-full h-full object-cover transition-all duration-300"
+                    className={imgClassName || 'w-full h-full object-cover'}
+                    loading={loading}
+                    decoding="async"
+                    fetchPriority={fetchPriority}
                     onLoad={() => setIsLoaded(true)}
+                    onError={() => setIsLoaded(true)}
                     style={{
                         opacity: isLoaded ? 1 : 0,
-                        filter: isLoaded ? 'none' : 'blur(5px)'
+                        filter: isLoaded ? 'none' : 'blur(8px)',
                     }}
                 />
-            )}
-            {!isLoaded && isInView && (
-                <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center">
-                    <Loader2 className="animate-spin text-gray-400" size={24} />
-                </div>
-            )}
-        </div>
-    );
-};
+                {!isLoaded && (
+                    <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+                        <Loader2 className="animate-spin text-gray-400" size={24} />
+                    </div>
+                )}
+            </div>
+        );
+    }
+);
 
 const API_URL = import.meta.env.PROD
     ? 'https://wedding-f35z.onrender.com/api'
@@ -81,6 +76,35 @@ function App() {
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+
+    const floatingDecor = React.useMemo(() => {
+        const hearts = [...Array(12)].map((_, i) => ({
+            key: `heart-${i}`,
+            size: 15 + Math.random() * 25,
+            left: `${Math.random() * 100}%`,
+            animationDelay: `${Math.random() * 8}s`,
+            animationDuration: `${6 + Math.random() * 6}s`,
+        }));
+
+        const stars = [...Array(6)].map((_, i) => ({
+            key: `star-${i}`,
+            size: 12 + Math.random() * 18,
+            left: `${Math.random() * 100}%`,
+            animationDuration: `${4 + Math.random() * 4}s`,
+            color: 'rgba(2, 132, 199, 0.3)',
+        }));
+
+        const particles = [...Array(20)].map((_, i) => ({
+            key: `particle-${i}`,
+            left: `${Math.random() * 100}%`,
+            animationDelay: `${Math.random() * 15}s`,
+            animationDuration: `${10 + Math.random() * 10}s`,
+        }));
+
+        return { hearts, stars, particles };
+    }, []);
+
+    const mediaById = React.useMemo(() => new Map(media.map((m) => [m._id, m])), [media]);
 
     const fetchCategories = async () => {
         try {
@@ -505,27 +529,27 @@ function App() {
             {!isMobile && (
                 <>
                     <div className="floating-hearts">
-                        {[...Array(12)].map((_, i) => (
+                        {floatingDecor.hearts.map((h) => (
                             <Heart
-                                key={`heart-${i}`}
-                                size={15 + Math.random() * 25}
+                                key={h.key}
+                                size={h.size}
                                 className="heart"
                                 style={{
-                                    left: `${Math.random() * 100}%`,
-                                    animationDelay: `${Math.random() * 8}s`,
-                                    animationDuration: `${6 + Math.random() * 6}s`
+                                    left: h.left,
+                                    animationDelay: h.animationDelay,
+                                    animationDuration: h.animationDuration
                                 }}
                             />
                         ))}
-                        {[...Array(6)].map((_, i) => (
+                        {floatingDecor.stars.map((s) => (
                             <Star
-                                key={`star-${i}`}
-                                size={12 + Math.random() * 18}
+                                key={s.key}
+                                size={s.size}
                                 className="heart sparkle"
                                 style={{
-                                    left: `${Math.random() * 100}%`,
-                                    animationDuration: `${4 + Math.random() * 4}s`,
-                                    color: 'rgba(2, 132, 199, 0.3)'
+                                    left: s.left,
+                                    animationDuration: s.animationDuration,
+                                    color: s.color
                                 }}
                             />
                         ))}
@@ -533,14 +557,14 @@ function App() {
 
                     {/* Floating Particles */}
                     <div className="floating-particles">
-                        {[...Array(20)].map((_, i) => (
+                        {floatingDecor.particles.map((p) => (
                             <div
-                                key={`particle-${i}`}
+                                key={p.key}
                                 className="particle"
                                 style={{
-                                    left: `${Math.random() * 100}%`,
-                                    animationDelay: `${Math.random() * 15}s`,
-                                    animationDuration: `${10 + Math.random() * 10}s`
+                                    left: p.left,
+                                    animationDelay: p.animationDelay,
+                                    animationDuration: p.animationDuration
                                 }}
                             />
                         ))}
@@ -1225,9 +1249,12 @@ function App() {
                                                 {likingPhotoId === zoomedImage._id ? (
                                                     <Loader2 size={16} className="animate-spin" />
                                                 ) : (
-                                                    <Heart size={16} className={media.find(m => m._id === zoomedImage._id)?.likes > 0 ? "text-red-400 fill-current" : ""} />
+                                                    <Heart
+                                                        size={16}
+                                                        className={(mediaById.get(zoomedImage._id)?.likes || 0) > 0 ? "text-red-400 fill-current" : ""}
+                                                    />
                                                 )}
-                                                <span className="font-bold">{media.find(m => m._id === zoomedImage._id)?.likes || 0}</span>
+                                                <span className="font-bold">{mediaById.get(zoomedImage._id)?.likes || 0}</span>
                                             </motion.button>
 
                                             <motion.button
@@ -1379,20 +1406,12 @@ function App() {
                 </motion.div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-                    <AnimatePresence>
-                        {media.map((item, index) => (
-                            <motion.div
-                                key={item._id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                transition={{
-                                    duration: window.innerWidth <= 640 ? 0.2 : 0.5,
-                                    delay: window.innerWidth <= 640 ? 0 : index * 0.05
-                                }}
-                                className="gallery-item group cursor-pointer transform transition-all duration-300 hover:scale-105 rounded-2xl overflow-hidden"
-                                onClick={() => setZoomedImage(item)}
-                            >
+                    {media.map((item, index) => (
+                        <div
+                            key={item._id}
+                            className="gallery-item group cursor-pointer transform transition-all duration-300 hover:scale-105 rounded-2xl overflow-hidden"
+                            onClick={() => setZoomedImage(item)}
+                        >
                                 {/* Media Container */}
                                 <div className="aspect-square relative overflow-hidden rounded-2xl shadow-2xl group-hover:shadow-3xl transition-all duration-500 border-2 border-white/30 backdrop-blur-sm bg-gradient-to-br from-white/5 to-transparent">
                                     {/* Decorative corner elements */}
@@ -1407,19 +1426,30 @@ function App() {
                                     {/* Image wrapper with proper rounding */}
                                     <div className="absolute inset-0 rounded-xl overflow-hidden">
                                         {item.type === 'video' ? (
-                                            <video
-                                                src={item.url}
-                                                className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
-                                                muted
-                                                loop
-                                                playsInline
-                                                preload="metadata"
-                                            />
+                                            item.posterUrl ? (
+                                                <LazyImage
+                                                    src={item.posterUrl}
+                                                    alt={`Video - ${item.category}`}
+                                                    wrapperClassName="w-full h-full"
+                                                    imgClassName="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+                                                    loading={index < 8 ? 'eager' : 'lazy'}
+                                                    fetchPriority={index < 4 ? 'high' : 'auto'}
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full bg-black/30 flex items-center justify-center">
+                                                    <Video size={48} className="text-white/80" />
+                                                </div>
+                                            )
                                         ) : (
                                             <LazyImage
-                                                src={item.url}
+                                                src={item.thumbUrl || item.url}
+                                                srcSet={item.srcSet}
+                                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                                                 alt={item.category}
-                                                className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+                                                wrapperClassName="w-full h-full"
+                                                imgClassName="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+                                                loading={index < 8 ? 'eager' : 'lazy'}
+                                                fetchPriority={index < 4 ? 'high' : 'auto'}
                                             />
                                         )}
                                     </div>
@@ -1503,9 +1533,8 @@ function App() {
                                         )}
                                     </div>
                                 </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
+                        </div>
+                    ))}
                 </div>
 
                 {
