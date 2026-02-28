@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical } from 'lucide-react';
+import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -77,6 +77,15 @@ function App() {
     const [loadingMore, setLoadingMore] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
+    // Slideshow
+    const [slideshowItems, setSlideshowItems] = useState([]);
+    const [showSlideshowManager, setShowSlideshowManager] = useState(false);
+    const [showAddToSlideshowPicker, setShowAddToSlideshowPicker] = useState(false);
+    const [showSlideshowFullscreen, setShowSlideshowFullscreen] = useState(false);
+    const [slideshowIndex, setSlideshowIndex] = useState(0);
+    const [slideshowLoading, setSlideshowLoading] = useState(false);
+    const [allImagesForPicker, setAllImagesForPicker] = useState([]);
+
     const floatingDecor = React.useMemo(() => {
         const hearts = [...Array(12)].map((_, i) => ({
             key: `heart-${i}`,
@@ -112,6 +121,51 @@ function App() {
             setCategories(res.data);
         } catch (err) {
             toast.error("Không thể tải danh mục!");
+        }
+    };
+
+    const fetchSlideshow = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/slideshow`);
+            setSlideshowItems(res.data.items || []);
+        } catch (err) {
+            toast.error("Không thể tải slideshow!");
+        }
+    };
+
+    const addToSlideshow = async (mediaId) => {
+        try {
+            await axios.post(`${API_URL}/slideshow/items`, { mediaId }, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
+            });
+            await fetchSlideshow();
+            toast.success("Đã thêm ảnh vào slideshow!");
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Không thể thêm vào slideshow!");
+        }
+    };
+
+    const removeFromSlideshow = async (mediaId) => {
+        try {
+            await axios.delete(`${API_URL}/slideshow/items/${mediaId}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
+            });
+            await fetchSlideshow();
+            toast.success("Đã xóa khỏi slideshow!");
+        } catch (err) {
+            toast.error("Không thể xóa khỏi slideshow!");
+        }
+    };
+
+    const reorderSlideshow = async (itemIds) => {
+        try {
+            await axios.put(`${API_URL}/slideshow/items/reorder`, { itemIds }, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
+            });
+            await fetchSlideshow();
+            toast.success("Đã cập nhật thứ tự!");
+        } catch (err) {
+            toast.error("Không thể sắp xếp slideshow!");
         }
     };
 
@@ -171,12 +225,28 @@ function App() {
     useEffect(() => {
         fetchMedia();
         fetchCategories();
+        fetchSlideshow();
         // Check if admin token exists in localStorage
         const token = localStorage.getItem('adminToken');
         if (token === 'huy&y2026') {
             setIsAdmin(true);
         }
     }, []);
+
+    // Slideshow auto-advance every 5s
+    useEffect(() => {
+        if (slideshowItems.length <= 1) return;
+        const t = setInterval(() => {
+            setSlideshowIndex((i) => (i + 1) % slideshowItems.length);
+        }, 5000);
+        return () => clearInterval(t);
+    }, [slideshowItems.length]);
+
+    useEffect(() => {
+        if (slideshowItems.length > 0 && slideshowIndex >= slideshowItems.length) {
+            setSlideshowIndex(0);
+        }
+    }, [slideshowItems.length, slideshowIndex]);
 
     const fetchMedia = async (page = 1, append = false) => {
         try {
@@ -1169,6 +1239,117 @@ function App() {
                 )
             }
 
+            {/* Admin Slideshow Manager */}
+            {isAdmin && (
+                <section className="max-w-5xl mx-auto px-4 mt-8 relative z-20">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="wedding-card rounded-3xl shadow-wedding-lg p-6 sm:p-8"
+                    >
+                        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-wedding-blue-100 flex items-center justify-center">
+                                    <Film size={24} className="text-wedding-blue-600" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl sm:text-2xl font-playfair font-bold text-wedding-blue-900">
+                                        Slideshow cưới
+                                    </h2>
+                                    <p className="text-sm text-wedding-blue-600">
+                                        Chọn ảnh từ gallery để tạo slideshow phát tại tiệc
+                                    </p>
+                                </div>
+                            </div>
+                            <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={async () => {
+                                    setShowAddToSlideshowPicker(true);
+                                    setSlideshowLoading(true);
+                                    try {
+                                        const res = await axios.get(`${API_URL}/media?type=image&limit=100`);
+                                        setAllImagesForPicker(res.data.media || []);
+                                    } catch {
+                                        toast.error("Không tải được danh sách ảnh");
+                                    }
+                                    setSlideshowLoading(false);
+                                }}
+                                className="inline-flex items-center gap-2 wedding-gradient text-white px-4 py-2 rounded-full font-semibold shadow-lg"
+                            >
+                                <Plus size={18} />
+                                Thêm ảnh vào slideshow
+                            </motion.button>
+                        </div>
+
+                        {slideshowItems.length === 0 ? (
+                            <div className="text-center py-8 rounded-2xl bg-wedding-blue-50/50 border-2 border-dashed border-wedding-blue-200">
+                                <Film size={40} className="mx-auto text-wedding-blue-400 mb-2" />
+                                <p className="text-wedding-blue-700 font-medium">Chưa có ảnh nào trong slideshow</p>
+                                <p className="text-sm text-wedding-blue-600 mt-1">Bấm &quot;Thêm ảnh vào slideshow&quot; để chọn ảnh từ gallery</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                {slideshowItems.map((item, idx) => (
+                                    <div
+                                        key={item._id}
+                                        className="group relative aspect-square rounded-xl overflow-hidden border-2 border-wedding-blue-200 bg-wedding-blue-50"
+                                    >
+                                        <img
+                                            src={item.thumbUrl || item.url}
+                                            alt={item.category}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                            <span className="text-white text-sm font-medium">#{idx + 1}</span>
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={() => removeFromSlideshow(item._id)}
+                                                className="p-2 bg-red-500 rounded-full text-white"
+                                                title="Xóa khỏi slideshow"
+                                            >
+                                                <Trash2 size={16} />
+                                            </motion.button>
+                                            {idx > 0 && (
+                                                <motion.button
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={() => {
+                                                        const ids = slideshowItems.map((i) => i._id);
+                                                        [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+                                                        reorderSlideshow(ids);
+                                                    }}
+                                                    className="p-2 bg-white/80 rounded-full text-wedding-blue-800"
+                                                    title="Lên trước"
+                                                >
+                                                    <ChevronLeft size={16} />
+                                                </motion.button>
+                                            )}
+                                            {idx < slideshowItems.length - 1 && (
+                                                <motion.button
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={() => {
+                                                        const ids = slideshowItems.map((i) => i._id);
+                                                        [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
+                                                        reorderSlideshow(ids);
+                                                    }}
+                                                    className="p-2 bg-white/80 rounded-full text-wedding-blue-800"
+                                                    title="Xuống sau"
+                                                >
+                                                    <ChevronRight size={16} />
+                                                </motion.button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </motion.div>
+                </section>
+            )}
+
             {/* Image Zoom Modal */}
             {
                 zoomedImage && (
@@ -1277,6 +1458,122 @@ function App() {
                 )
             }
 
+            {/* Add to Slideshow Picker Modal */}
+            {showAddToSlideshowPicker && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="wedding-card rounded-3xl p-6 max-w-4xl w-full max-h-[85vh] flex flex-col"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-playfair font-bold text-wedding-blue-900">
+                                Chọn ảnh thêm vào slideshow
+                            </h3>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setShowAddToSlideshowPicker(false)}
+                                className="p-2 rounded-full bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200"
+                            >
+                                <X size={20} />
+                            </motion.button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto min-h-0">
+                            {slideshowLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="animate-spin text-wedding-blue-600" size={32} />
+                                </div>
+                            ) : allImagesForPicker.length === 0 ? (
+                                <p className="text-center text-wedding-blue-600 py-8">Chưa có ảnh nào trong gallery.</p>
+                            ) : (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                                    {allImagesForPicker.map((m) => {
+                                        const inSlideshow = slideshowItems.some((i) => i._id === m._id);
+                                        return (
+                                            <div key={m._id} className="relative aspect-square rounded-xl overflow-hidden border-2 border-wedding-blue-200 group">
+                                                <img
+                                                    src={m.thumbUrl || m.url}
+                                                    alt={m.category}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    {inSlideshow ? (
+                                                        <span className="text-white text-sm font-medium bg-wedding-gold-500 px-2 py-1 rounded-full">Đã thêm</span>
+                                                    ) : (
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            onClick={() => addToSlideshow(m._id)}
+                                                            className="bg-wedding-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold"
+                                                        >
+                                                            Thêm vào slideshow
+                                                        </motion.button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Fullscreen Slideshow Modal */}
+            {showSlideshowFullscreen && slideshowItems.length > 0 && (
+                <div className="fixed inset-0 bg-black z-[100] flex flex-col">
+                    <button
+                        type="button"
+                        onClick={() => setShowSlideshowFullscreen(false)}
+                        className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+                        aria-label="Đóng"
+                    >
+                        <X size={24} />
+                    </button>
+                    <div className="flex-1 flex items-center justify-center p-4 min-h-0">
+                        <img
+                            key={slideshowItems[slideshowIndex]?._id}
+                            src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
+                            alt={`Slideshow ${slideshowIndex + 1}`}
+                            className="max-w-full max-h-full object-contain"
+                        />
+                    </div>
+                    {slideshowItems.length > 1 && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setSlideshowIndex((i) => (i - 1 + slideshowItems.length) % slideshowItems.length)}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+                                aria-label="Ảnh trước"
+                            >
+                                <ChevronLeft size={28} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSlideshowIndex((i) => (i + 1) % slideshowItems.length)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+                                aria-label="Ảnh sau"
+                            >
+                                <ChevronRight size={28} />
+                            </button>
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+                                {slideshowItems.map((_, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => setSlideshowIndex(idx)}
+                                        className={`w-3 h-3 rounded-full transition-all ${idx === slideshowIndex ? 'bg-white scale-110' : 'bg-white/50 hover:bg-white/70'}`}
+                                        aria-label={`Slide ${idx + 1}`}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+
             {/* Gallery Section */}
             <main className="max-w-7xl mx-auto px-4 py-24">
                 <motion.div
@@ -1312,6 +1609,72 @@ function App() {
                         <Sparkles size={16} className="animate-pulse sparkle" />
                     </motion.button>
                 </motion.div>
+
+                {/* Public Slideshow Section */}
+                {slideshowItems.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.55 }}
+                        className="mb-16"
+                    >
+                        <h2 className="text-3xl sm:text-4xl font-playfair font-bold text-wedding-blue-900 text-center mb-6">
+                            Slideshow <span className="gold-accent">cưới</span>
+                        </h2>
+                        <div className="relative max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl border-2 border-wedding-gold-200/50 bg-black/5">
+                            <div className="aspect-[16/10] sm:aspect-video relative">
+                                <img
+                                    key={slideshowItems[slideshowIndex]?._id}
+                                    src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
+                                    alt={`Slideshow ${slideshowIndex + 1}`}
+                                    className="w-full h-full object-contain bg-black/10"
+                                />
+                                {slideshowItems.length > 1 && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSlideshowIndex((i) => (i - 1 + slideshowItems.length) % slideshowItems.length)}
+                                            className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-wedding-blue-800 hover:bg-white transition-colors"
+                                            aria-label="Ảnh trước"
+                                        >
+                                            <ChevronLeft size={24} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSlideshowIndex((i) => (i + 1) % slideshowItems.length)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-wedding-blue-800 hover:bg-white transition-colors"
+                                            aria-label="Ảnh sau"
+                                        >
+                                            <ChevronRight size={24} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                            <div className="flex items-center justify-between gap-4 p-4 bg-gradient-to-r from-wedding-blue-50 to-wedding-blue-100/80">
+                                <div className="flex gap-1.5 overflow-x-auto py-1">
+                                    {slideshowItems.map((_, idx) => (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => setSlideshowIndex(idx)}
+                                            className={`w-2.5 h-2.5 rounded-full shrink-0 transition-all ${idx === slideshowIndex ? 'bg-wedding-blue-600 scale-125' : 'bg-wedding-blue-300 hover:bg-wedding-blue-400'}`}
+                                            aria-label={`Slide ${idx + 1}`}
+                                        />
+                                    ))}
+                                </div>
+                                <motion.button
+                                    whileHover={{ scale: 1.03 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setShowSlideshowFullscreen(true)}
+                                    className="inline-flex items-center gap-2 wedding-gradient text-white px-4 py-2 rounded-full font-semibold text-sm shadow-lg"
+                                >
+                                    <Film size={18} />
+                                    Xem slideshow
+                                </motion.button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
 
                 {/* Type and Category Filter */}
                 <motion.div

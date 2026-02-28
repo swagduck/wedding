@@ -146,6 +146,8 @@ mongoose
         { createdAt: 1 }, // For sorting
       ]);
 
+      await Slideshow.createIndexes([{ slug: 1 }]);
+
       console.log('✅ Database indexes created/verified');
     } catch (indexError) {
       console.error('⚠️ Error creating indexes:', indexError.message);
@@ -159,6 +161,13 @@ mongoose
         await Category.create({ name: catName });
       }
     }
+
+    // Ensure default slideshow document exists
+    await Slideshow.findOneAndUpdate(
+      { slug: 'main' },
+      { $setOnInsert: { slug: 'main', items: [], updatedAt: new Date() } },
+      { upsert: true }
+    );
     
     // Migration: Chuyển data từ collection photos sang media
     const db = mongoose.connection.db;
@@ -272,6 +281,20 @@ const mediaSchema = new mongoose.Schema({
 });
 
 const Media = mongoose.model("Media", mediaSchema);
+
+// Slideshow Schema (admin-curated list of images for wedding slideshow)
+const slideshowItemSchema = new mongoose.Schema({
+  mediaId: { type: mongoose.Schema.Types.ObjectId, ref: "Media", required: true },
+  order: { type: Number, required: true },
+}, { _id: false });
+
+const slideshowSchema = new mongoose.Schema({
+  slug: { type: String, default: "main", unique: true },
+  items: [slideshowItemSchema],
+  updatedAt: { type: Date, default: Date.now },
+});
+
+const Slideshow = mongoose.model("Slideshow", slideshowSchema);
 
 console.log('✅ Database models initialized');
 
@@ -821,6 +844,12 @@ app.delete("/api/media/:id", authenticateAdmin, async (req, res) => {
     const resourceType = media.type === 'video' ? 'video' : 'image';
     await cloudinary.uploader.destroy(media.public_id, { resource_type: resourceType });
 
+    // Remove from slideshow if present
+    await Slideshow.updateMany(
+      {},
+      { $pull: { items: { mediaId: id } } }
+    );
+
     // Xóa media khỏi MongoDB
     await Media.findByIdAndDelete(id);
 
@@ -833,6 +862,164 @@ app.delete("/api/media/:id", authenticateAdmin, async (req, res) => {
     res.status(200).json({ message: "Đã xóa media thành công." });
   } catch (error) {
     res.status(500).json({ message: "Lỗi khi xóa media", error });
+  }
+});
+
+/**
+ * @route   GET /api/slideshow
+ * @desc    Get slideshow items (images only, for public display)
+ */
+app.get("/api/slideshow", async (req, res) => {
+  try {
+    const cacheKey = 'slideshow_main';
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
+    const slideshow = await Slideshow.findOne({ slug: 'main' }).lean();
+    if (!slideshow || !slideshow.items || slideshow.items.length === 0) {
+      const result = { items: [] };
+      cache.set(cacheKey, result, 60);
+      return res.status(200).json(result);
+    }
+
+    const sorted = [...slideshow.items].sort((a, b) => a.order - b.order);
+    const mediaIds = sorted.map((i) => i.mediaId);
+    const mediaList = await Media.find({ _id: { $in: mediaIds }, type: 'image' }).lean();
+
+    const mediaById = new Map(mediaList.map((m) => [m._id.toString(), m]));
+    const items = sorted
+      .map((entry) => mediaById.get(entry.mediaId.toString()))
+      .filter(Boolean)
+      .map((m) => {
+        const base = { ...m };
+        if (isCloudinaryUrl(base.url) && base.public_id) {
+          base.thumbUrl = buildCloudinaryImageUrl(base.public_id, { size: 640 });
+          base.slideshowUrl = buildCloudinaryImageUrl(base.public_id, { size: 1920 });
+        } else {
+          base.slideshowUrl = base.url;
+        }
+        return base;
+      });
+
+    const result = { items };
+    cache.set(cacheKey, result, 120);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('❌ Error fetching slideshow:', error);
+    res.status(500).json({ message: "Lỗi khi lấy slideshow", error: error.message });
+  }
+});
+
+const clearSlideshowCache = () => {
+  cache.del('slideshow_main');
+  console.log('🗑️ Cleared slideshow cache');
+};
+
+/**
+ * @route   POST /api/slideshow/items
+ * @desc    Add image to slideshow (admin only, images only)
+ */
+app.post("/api/slideshow/items", authenticateAdmin, async (req, res) => {
+  try {
+    const { mediaId } = req.body;
+    if (!mediaId) {
+      return res.status(400).json({ message: "Thiếu mediaId." });
+    }
+
+    const media = await Media.findById(mediaId);
+    if (!media) {
+      return res.status(404).json({ message: "Không tìm thấy ảnh này." });
+    }
+    if (media.type !== 'image') {
+      return res.status(400).json({ message: "Chỉ có thể thêm ảnh vào slideshow." });
+    }
+
+    let slideshow = await Slideshow.findOne({ slug: 'main' });
+    if (!slideshow) {
+      slideshow = await Slideshow.create({ slug: 'main', items: [] });
+    }
+
+    const alreadyIn = slideshow.items.some((i) => i.mediaId.toString() === mediaId);
+    if (alreadyIn) {
+      return res.status(400).json({ message: "Ảnh đã có trong slideshow." });
+    }
+
+    const maxOrder = slideshow.items.length === 0
+      ? 0
+      : Math.max(...slideshow.items.map((i) => i.order));
+    slideshow.items.push({ mediaId: media._id, order: maxOrder + 1 });
+    slideshow.updatedAt = new Date();
+    await slideshow.save();
+
+    clearSlideshowCache();
+    const updated = await Slideshow.findOne({ slug: 'main' }).lean();
+    res.status(201).json(updated);
+  } catch (error) {
+    console.error('❌ Error adding to slideshow:', error);
+    res.status(500).json({ message: "Lỗi khi thêm vào slideshow", error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /api/slideshow/items/:mediaId
+ * @desc    Remove image from slideshow (admin only)
+ */
+app.delete("/api/slideshow/items/:mediaId", authenticateAdmin, async (req, res) => {
+  try {
+    const { mediaId } = req.params;
+    const slideshow = await Slideshow.findOne({ slug: 'main' });
+    if (!slideshow) {
+      return res.status(404).json({ message: "Không tìm thấy slideshow." });
+    }
+
+    slideshow.items = slideshow.items.filter((i) => i.mediaId.toString() !== mediaId);
+    slideshow.updatedAt = new Date();
+    await slideshow.save();
+
+    clearSlideshowCache();
+    const updated = await Slideshow.findOne({ slug: 'main' }).lean();
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error('❌ Error removing from slideshow:', error);
+    res.status(500).json({ message: "Lỗi khi xóa khỏi slideshow", error: error.message });
+  }
+});
+
+/**
+ * @route   PUT /api/slideshow/items/reorder
+ * @desc    Reorder slideshow items (admin only). Body: { itemIds: [id1, id2, ...] }
+ */
+app.put("/api/slideshow/items/reorder", authenticateAdmin, async (req, res) => {
+  try {
+    const { itemIds } = req.body;
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return res.status(400).json({ message: "itemIds phải là mảng không rỗng." });
+    }
+
+    const slideshow = await Slideshow.findOne({ slug: 'main' });
+    if (!slideshow) {
+      return res.status(404).json({ message: "Không tìm thấy slideshow." });
+    }
+
+    const orderById = new Map(itemIds.map((id, index) => [id, index]));
+    slideshow.items.forEach((entry) => {
+      const id = entry.mediaId.toString();
+      if (orderById.has(id)) {
+        entry.order = orderById.get(id);
+      }
+    });
+    slideshow.items.sort((a, b) => a.order - b.order);
+    slideshow.updatedAt = new Date();
+    await slideshow.save();
+
+    clearSlideshowCache();
+    const updated = await Slideshow.findOne({ slug: 'main' }).lean();
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error('❌ Error reordering slideshow:', error);
+    res.status(500).json({ message: "Lỗi khi sắp xếp slideshow", error: error.message });
   }
 });
 
