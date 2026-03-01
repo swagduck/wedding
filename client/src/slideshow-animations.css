@@ -190,7 +190,7 @@
     height: 120%;
     object-fit: cover;
     filter: blur(40px) brightness(0.4);
-    z-index: 1001;
+    z-index: 0;
     pointer-events: none;
     transition: opacity 0.5s ease-in-out;
 }
@@ -201,7 +201,7 @@
     object-fit: contain;
     border-radius: 0.5rem;
     box-shadow: 0 40px 80px rgba(0, 0, 0, 0.8), 0 0 100px rgba(2, 132, 199, 0.2);
-    z-index: 1002;
+    z-index: 10;
     position: relative;
 }
 
