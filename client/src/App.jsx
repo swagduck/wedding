@@ -1821,7 +1821,19 @@ function App() {
                         alt="Background blur"
                     />
 
-                    <div className="flex-1 flex items-center justify-center p-4 min-h-0 relative z-10">
+                    {/* Close Button */}
+                    <button
+                        onClick={closeFullscreenSlideshow}
+                        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-[1010] p-3 rounded-full bg-black/40 text-white hover:bg-black/60 transition-all backdrop-blur-md shadow-lg"
+                        aria-label="Đóng slideshow"
+                    >
+                        <X size={24} />
+                    </button>
+
+                    <div
+                        className="flex-1 flex items-center justify-center p-4 min-h-0 relative z-10 w-full h-full cursor-pointer"
+                        onClick={() => setShowControls(!showControls)}
+                    >
                         <AnimatePresence mode="wait">
                             <motion.img
                                 key={slideshowItems[slideshowIndex]?._id}
@@ -1841,22 +1853,22 @@ function App() {
                     {slideshowItems.length > 1 && (
                         <>
                             {showControls && (
-                                <div className="absolute inset-x-0 bottom-6 sm:bottom-10 z-50 flex flex-col items-center justify-end gap-4 px-4 pointer-events-none" style={{
+                                <div className="absolute inset-x-0 bottom-6 sm:bottom-10 z-[1010] flex flex-col items-center justify-end gap-4 px-4 pointer-events-none" style={{
                                     opacity: showControls ? 1 : 0,
                                     transition: 'opacity 0.3s ease-in-out'
                                 }}>
-                                    <div className="flex items-center gap-6 bg-black/40 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 pointer-events-auto">
+                                    <div className="flex items-center gap-4 sm:gap-6 bg-black/40 backdrop-blur-md px-4 sm:px-6 py-3 rounded-full border border-white/20 pointer-events-auto">
                                         <button
                                             type="button"
-                                            onClick={() => setSlideshowIndex((i) => (i - 1 + slideshowItems.length) % slideshowItems.length)}
+                                            onClick={(e) => { e.stopPropagation(); setSlideshowIndex((i) => (i - 1 + slideshowItems.length) % slideshowItems.length); }}
                                             className="text-white bg-white/10 hover:bg-white/30 rounded-full p-2.5 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-110 active:scale-95 border border-white/10"
                                             aria-label="Ảnh trước"
                                         >
-                                            <ChevronLeft size={24} />
+                                            <ChevronLeft size={24} className="sm:w-6 sm:h-6 w-5 h-5" />
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={toggleAutoPlay}
+                                            onClick={(e) => { e.stopPropagation(); toggleAutoPlay(); }}
                                             className="text-white bg-white/10 hover:bg-white/30 rounded-full p-3 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-110 active:scale-95 border border-white/10"
                                             aria-label={isAutoPlaying ? "Tạm dừng" : "Chơi tự động"}
                                         >
@@ -1873,20 +1885,20 @@ function App() {
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setSlideshowIndex((i) => (i + 1) % slideshowItems.length)}
+                                            onClick={(e) => { e.stopPropagation(); setSlideshowIndex((i) => (i + 1) % slideshowItems.length); }}
                                             className="text-white bg-white/10 hover:bg-white/30 rounded-full p-2.5 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-110 active:scale-95 border border-white/10"
                                             aria-label="Ảnh sau"
                                         >
-                                            <ChevronRight size={24} />
+                                            <ChevronRight size={24} className="sm:w-6 sm:h-6 w-5 h-5" />
                                         </button>
                                     </div>
-                                    <div className="flex flex-wrap items-center justify-center gap-2 bg-black/40 backdrop-blur-md px-5 py-2.5 rounded-3xl border border-white/20 pointer-events-auto max-w-[90vw]">
+                                    <div className="flex flex-wrap items-center justify-center gap-2 bg-black/40 backdrop-blur-md px-4 sm:px-5 py-2 sm:py-2.5 rounded-3xl border border-white/20 pointer-events-auto max-w-[90vw]">
                                         {slideshowItems.map((_, idx) => (
                                             <button
                                                 key={idx}
                                                 type="button"
-                                                onClick={() => setSlideshowIndex(idx)}
-                                                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === slideshowIndex
+                                                onClick={(e) => { e.stopPropagation(); setSlideshowIndex(idx); }}
+                                                className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all duration-300 ${idx === slideshowIndex
                                                     ? 'bg-white scale-150 shadow-[0_0_12px_rgba(255,255,255,0.8)]'
                                                     : 'bg-white/40 hover:bg-white/80'}`}
                                                 aria-label={`Slide ${idx + 1}`}
