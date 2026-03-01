@@ -1813,8 +1813,15 @@ function App() {
             {/* Fullscreen Slideshow Modal */}
             {showSlideshowFullscreen && slideshowItems.length > 0 && (
                 <div className="slideshow-fullscreen">
+                    {/* Blurred Background Layer */}
+                    <img
+                        key={`bg-${slideshowItems[slideshowIndex]?._id}`}
+                        src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
+                        className="slideshow-fullscreen-bg"
+                        alt="Background blur"
+                    />
 
-                    <div className="flex-1 flex items-center justify-center p-4 min-h-0 relative">
+                    <div className="flex-1 flex items-center justify-center p-4 min-h-0 relative z-10">
                         <AnimatePresence mode="wait">
                             <motion.img
                                 key={slideshowItems[slideshowIndex]?._id}
