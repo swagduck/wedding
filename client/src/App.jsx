@@ -77,7 +77,8 @@ function App() {
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    const [bgAudioUrl, setBgAudioUrl] = useState('/audio.mp3');
+    const [bgAudioList, setBgAudioList] = useState([]);
+    const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
     const [audioUploading, setAudioUploading] = useState(false);
 
     // Slideshow
@@ -141,8 +142,8 @@ function App() {
     const fetchAudioUrl = async () => {
         try {
             const res = await axios.get(`${API_URL}/settings/audio`);
-            if (res.data.url) {
-                setBgAudioUrl(res.data.url);
+            if (res.data.list && res.data.list.length > 0) {
+                setBgAudioList(res.data.list);
             }
         } catch (err) {
             console.error(err);
@@ -537,7 +538,9 @@ function App() {
                 }
             });
 
-            setBgAudioUrl(res.data.url);
+            if (res.data.list) {
+                setBgAudioList(res.data.list);
+            }
             toast.success("Tải nhạc nền thành công!");
         } catch (err) {
             toast.error("Tải nhạc nền thất bại! File phải là âm thanh.");
@@ -545,6 +548,34 @@ function App() {
         } finally {
             setAudioUploading(false);
         }
+    };
+
+    const handleDeleteAudio = async (audioId) => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa bài hát này?")) return;
+
+        try {
+            const res = await axios.delete(`${API_URL}/settings/audio/${audioId}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                }
+            });
+            if (res.data.list) {
+                setBgAudioList(res.data.list);
+                // Adjust index if out of bounds
+                if (currentAudioIndex >= res.data.list.length) {
+                    setCurrentAudioIndex(0);
+                }
+            }
+            toast.success("Xóa bài hát thành công!");
+        } catch (err) {
+            toast.error("Xóa bài hát thất bại!");
+            console.error(err);
+        }
+    };
+
+    const handleAudioEnded = () => {
+        if (bgAudioList.length <= 1) return;
+        setCurrentAudioIndex((prev) => (prev + 1) % bgAudioList.length);
     };
 
     const handleLike = async (id) => {
@@ -761,6 +792,8 @@ function App() {
         setShowSlideshowFullscreen(false);
         setIsAutoPlaying(false);
     };
+
+    const currentAudioUrl = bgAudioList.length > 0 ? bgAudioList[currentAudioIndex].url : '/audio.mp3';
 
     return (
         <div className="min-h-screen relative overflow-hidden">
@@ -1533,17 +1566,48 @@ function App() {
                             </div>
                             <div>
                                 <h2 className="text-xl sm:text-2xl font-playfair font-bold text-wedding-blue-900 mb-1">
-                                    Nhạc nền (Admin)
+                                    Danh sách nhạc nền (Admin)
                                 </h2>
                                 <p className="text-sm text-wedding-blue-600">
-                                    Upload file nhạc (MP3, WAV) để thay đổi nhạc nền
+                                    Upload các file nhạc (MP3, WAV) để phát tự động theo thứ tự
                                 </p>
                             </div>
                         </div>
                         <div className="w-full sm:w-auto flex flex-col items-center gap-4">
-                            <audio controls loop className="w-full sm:w-72" src={bgAudioUrl}>
+                            <audio
+                                controls
+                                autoPlay
+                                className="w-full sm:w-72"
+                                src={currentAudioUrl}
+                                onEnded={handleAudioEnded}
+                                title={bgAudioList[currentAudioIndex]?.name || "Wedding Audio"}
+                            >
                                 Trình duyệt của bạn không hỗ trợ thẻ audio.
                             </audio>
+                            <div className="flex flex-col gap-2 w-full max-h-40 overflow-y-auto pr-2">
+                                {bgAudioList.map((audioItem, idx) => (
+                                    <div key={audioItem.id} className={`flex items-center justify-between p-2 rounded-lg border ${idx === currentAudioIndex ? 'bg-wedding-blue-100 border-wedding-blue-300' : 'bg-gray-50 border-gray-200'}`}>
+                                        <div
+                                            className="text-sm font-medium text-wedding-blue-800 truncate cursor-pointer flex-1"
+                                            onClick={() => setCurrentAudioIndex(idx)}
+                                            title="Phát bài này"
+                                        >
+                                            {idx === currentAudioIndex && <Loader2 size={12} className="inline mr-1 animate-spin text-wedding-blue-600" />}
+                                            {audioItem.name || 'Audio file'}
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteAudio(audioItem.id)}
+                                            className="ml-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded-full transition-colors"
+                                            title="Xóa bài hát"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {bgAudioList.length === 0 && (
+                                    <div className="text-sm text-gray-500 text-center italic">Chưa có bài hát nào</div>
+                                )}
+                            </div>
                             <label className={`
                                 inline-flex items-center justify-center gap-2 px-6 py-2 rounded-full font-bold text-sm sm:text-base transition-all cursor-pointer shadow-md
                                 ${audioUploading

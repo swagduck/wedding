@@ -1034,12 +1034,21 @@ app.put("/api/slideshow/items/reorder", authenticateAdmin, async (req, res) => {
 
 /**
  * @route   GET /api/settings/audio
- * @desc    Get background audio URL
+ * @desc    Get background audio URLs array
  */
 app.get("/api/settings/audio", async (req, res) => {
   try {
     const setting = await Setting.findOne({ key: 'background_audio' }).lean();
-    res.status(200).json({ url: setting ? setting.value : null });
+    let audioList = [];
+    if (setting && setting.value) {
+      try {
+        audioList = JSON.parse(setting.value);
+      } catch (e) {
+        // Fallback for transition from single URL to array
+        audioList = [{ url: setting.value, id: 'legacy' }];
+      }
+    }
+    res.status(200).json({ list: audioList });
   } catch (error) {
     console.error('❌ Error fetching audio setting:', error);
     res.status(500).json({ message: "Lỗi khi lấy cài đặt nhạc nền", error: error.message });
@@ -1048,7 +1057,7 @@ app.get("/api/settings/audio", async (req, res) => {
 
 /**
  * @route   POST /api/settings/audio
- * @desc    Upload background audio
+ * @desc    Upload background audio and append to playlist
  */
 app.post("/api/settings/audio", authenticateAdmin, (req, res, next) => {
   return videoUpload.single("audio")(req, res, next);
@@ -1063,12 +1072,13 @@ app.post("/api/settings/audio", authenticateAdmin, (req, res, next) => {
     }
 
     // Upload to Cloudinary
+    const publicId = `bg_audio_${Date.now()}`;
     const cloudinaryResult = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: "wedding_audio",
           resource_type: "video", // Cloudinary uses 'video' for audio files
-          public_id: `bg_audio_${Date.now()}`,
+          public_id: publicId,
           secure: true
         },
         (error, result) => {
@@ -1080,18 +1090,86 @@ app.post("/api/settings/audio", authenticateAdmin, (req, res, next) => {
     });
 
     const audioUrl = cloudinaryResult.secure_url || cloudinaryResult.url;
+    const newAudioItem = { id: publicId, url: audioUrl, name: req.file.originalname };
+
+    // Fetch existing settings
+    let setting = await Setting.findOne({ key: 'background_audio' });
+    let audioList = [];
+
+    if (setting && setting.value) {
+      try {
+        audioList = JSON.parse(setting.value);
+      } catch (e) {
+        audioList = [{ id: 'legacy', url: setting.value, name: 'Unknown' }];
+      }
+    }
+
+    // Append new audio file
+    audioList.push(newAudioItem);
 
     // Update or create setting
     await Setting.findOneAndUpdate(
       { key: 'background_audio' },
-      { value: audioUrl, updatedAt: new Date() },
+      { value: JSON.stringify(audioList), updatedAt: new Date() },
       { upsert: true, new: true }
     );
 
-    res.status(200).json({ url: audioUrl });
+    res.status(200).json({ list: audioList });
   } catch (error) {
     console.error('❌ Error uploading audio setting:', error);
     res.status(500).json({ message: "Lỗi khi tải lên nhạc nền", error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /api/settings/audio/:id
+ * @desc    Delete a specific background audio file from the playlist
+ */
+app.delete("/api/settings/audio/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let setting = await Setting.findOne({ key: 'background_audio' });
+
+    if (!setting || !setting.value) {
+      return res.status(404).json({ message: "Không tìm thấy danh sách nhạc nền." });
+    }
+
+    let audioList = [];
+    try {
+      audioList = JSON.parse(setting.value);
+    } catch (e) {
+      audioList = [{ id: 'legacy', url: setting.value, name: 'Unknown' }];
+    }
+
+    // Find the item to delete
+    const itemIndex = audioList.findIndex(audio => audio.id === id);
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: "Không tìm thấy bài hát này." });
+    }
+
+    // Avoid removing "legacy" from cloudinary since we don't have its public_id accurately
+    if (id !== 'legacy') {
+      try {
+        await cloudinary.uploader.destroy(id, { resource_type: 'video' });
+      } catch (err) {
+        console.error('⚠️ Could not delete from Cloudinary:', err);
+      }
+    }
+
+    // Remove from array
+    audioList.splice(itemIndex, 1);
+
+    // Update DB
+    await Setting.findOneAndUpdate(
+      { key: 'background_audio' },
+      { value: JSON.stringify(audioList), updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.status(200).json({ list: audioList });
+  } catch (error) {
+    console.error('❌ Error deleting audio setting:', error);
+    res.status(500).json({ message: "Lỗi khi xóa bài hát", error: error.message });
   }
 });
 
