@@ -296,6 +296,15 @@ const slideshowSchema = new mongoose.Schema({
 
 const Slideshow = mongoose.model("Slideshow", slideshowSchema);
 
+// Settings Schema (global configuration like background audio)
+const settingSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true },
+  value: { type: String, required: true },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+const Setting = mongoose.model("Setting", settingSchema);
+
 console.log('✅ Database models initialized');
 
 // 5. Cấu hình Cloudinary & Multer (Xử lý file ảnh)
@@ -346,14 +355,14 @@ const videoUpload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB limit for videos
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo', 'audio/mpeg', 'audio/mp3', 'audio/wav'];
     console.log(`🔍 File type check: ${file.mimetype} (allowed: ${allowedTypes.includes(file.mimetype)})`);
     
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       console.log(`❌ Rejected file type: ${file.mimetype}`);
-      cb(new Error('Chỉ chấp nhận ảnh (JPG, PNG, WebP) và video (MP4, MOV, AVI)'), false);
+      cb(new Error('Chỉ chấp nhận ảnh (JPG, PNG, WebP), video (MP4, MOV, AVI) và nhạc (MP3, WAV)'), false);
     }
   }
 });
@@ -1020,6 +1029,69 @@ app.put("/api/slideshow/items/reorder", authenticateAdmin, async (req, res) => {
   } catch (error) {
     console.error('❌ Error reordering slideshow:', error);
     res.status(500).json({ message: "Lỗi khi sắp xếp slideshow", error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/settings/audio
+ * @desc    Get background audio URL
+ */
+app.get("/api/settings/audio", async (req, res) => {
+  try {
+    const setting = await Setting.findOne({ key: 'background_audio' }).lean();
+    res.status(200).json({ url: setting ? setting.value : null });
+  } catch (error) {
+    console.error('❌ Error fetching audio setting:', error);
+    res.status(500).json({ message: "Lỗi khi lấy cài đặt nhạc nền", error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/settings/audio
+ * @desc    Upload background audio
+ */
+app.post("/api/settings/audio", authenticateAdmin, (req, res, next) => {
+  return videoUpload.single("audio")(req, res, next);
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Không có file nào được tải lên." });
+    }
+
+    if (!req.file.mimetype.startsWith('audio/')) {
+      return res.status(400).json({ message: "File tải lên phải là file âm thanh (MP3, WAV)." });
+    }
+
+    // Upload to Cloudinary
+    const cloudinaryResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "wedding_audio",
+          resource_type: "video", // Cloudinary uses 'video' for audio files
+          public_id: `bg_audio_${Date.now()}`,
+          secure: true
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(req.file.buffer);
+    });
+
+    const audioUrl = cloudinaryResult.secure_url || cloudinaryResult.url;
+
+    // Update or create setting
+    await Setting.findOneAndUpdate(
+      { key: 'background_audio' },
+      { value: audioUrl, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.status(200).json({ url: audioUrl });
+  } catch (error) {
+    console.error('❌ Error uploading audio setting:', error);
+    res.status(500).json({ message: "Lỗi khi tải lên nhạc nền", error: error.message });
   }
 });
 

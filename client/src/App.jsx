@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight, Music } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
+import './slideshow-animations.css';
 
 const LazyImage = React.memo(
     ({
@@ -76,6 +77,8 @@ function App() {
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [bgAudioUrl, setBgAudioUrl] = useState('/audio.mp3');
+    const [audioUploading, setAudioUploading] = useState(false);
 
     // Slideshow
     const [slideshowItems, setSlideshowItems] = useState([]);
@@ -85,6 +88,8 @@ function App() {
     const [slideshowIndex, setSlideshowIndex] = useState(0);
     const [slideshowLoading, setSlideshowLoading] = useState(false);
     const [allImagesForPicker, setAllImagesForPicker] = useState([]);
+    const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+    const [showControls, setShowControls] = useState(true);
 
     const floatingDecor = React.useMemo(() => {
         const hearts = [...Array(12)].map((_, i) => ({
@@ -130,6 +135,17 @@ function App() {
             setSlideshowItems(res.data.items || []);
         } catch (err) {
             toast.error("Không thể tải slideshow!");
+        }
+    };
+
+    const fetchAudioUrl = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/settings/audio`);
+            if (res.data.url) {
+                setBgAudioUrl(res.data.url);
+            }
+        } catch (err) {
+            console.error(err);
         }
     };
 
@@ -226,6 +242,7 @@ function App() {
         fetchMedia();
         fetchCategories();
         fetchSlideshow();
+        fetchAudioUrl();
         // Check if admin token exists in localStorage
         const token = localStorage.getItem('adminToken');
         if (token === 'huy&y2026') {
@@ -233,14 +250,100 @@ function App() {
         }
     }, []);
 
-    // Slideshow auto-advance every 5s
+    // Slideshow auto-advance every 5s (for regular slideshow)
     useEffect(() => {
-        if (slideshowItems.length <= 1) return;
+        if (slideshowItems.length <= 1 || showSlideshowFullscreen) return; // Don't auto-advance when fullscreen is open
         const t = setInterval(() => {
             setSlideshowIndex((i) => (i + 1) % slideshowItems.length);
         }, 5000);
         return () => clearInterval(t);
-    }, [slideshowItems.length]);
+    }, [slideshowItems.length, showSlideshowFullscreen]);
+
+    // Fullscreen auto-play functionality
+    useEffect(() => {
+        if (!isAutoPlaying || slideshowItems.length <= 1 || !showSlideshowFullscreen) return;
+
+        const t = setInterval(() => {
+            setSlideshowIndex((i) => (i + 1) % slideshowItems.length);
+        }, 4000); // 4 seconds for fullscreen auto-play
+
+        return () => clearInterval(t);
+    }, [isAutoPlaying, slideshowItems.length, showSlideshowFullscreen]);
+
+    // Handle fullscreen change events
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                // User exited fullscreen using ESC key or browser UI
+                setShowSlideshowFullscreen(false);
+                setIsAutoPlaying(false);
+                setShowControls(true); // Show controls when exiting fullscreen
+            }
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && showSlideshowFullscreen) {
+                closeFullscreenSlideshow();
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('msfullscreenchange', handleFullscreenChange);
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showSlideshowFullscreen]);
+
+    // Auto-hide controls in fullscreen mode
+    useEffect(() => {
+        if (!showSlideshowFullscreen) return;
+
+        let hideTimer;
+
+        const showControlsTemporarily = () => {
+            setShowControls(true);
+
+            // Clear existing timer
+            if (hideTimer) clearTimeout(hideTimer);
+
+            // Hide controls after 3 seconds of inactivity
+            hideTimer = setTimeout(() => {
+                setShowControls(false);
+            }, 3000);
+        };
+
+        const handleMouseMove = () => {
+            showControlsTemporarily();
+        };
+
+        const handleMouseEnter = () => {
+            showControlsTemporarily();
+        };
+
+        // Show controls initially when entering fullscreen
+        showControlsTemporarily();
+
+        // Add event listeners to the fullscreen element
+        const fullscreenElement = document.querySelector('.slideshow-fullscreen');
+        if (fullscreenElement) {
+            fullscreenElement.addEventListener('mousemove', handleMouseMove);
+            fullscreenElement.addEventListener('mouseenter', handleMouseEnter);
+        }
+
+        return () => {
+            if (hideTimer) clearTimeout(hideTimer);
+            if (fullscreenElement) {
+                fullscreenElement.removeEventListener('mousemove', handleMouseMove);
+                fullscreenElement.removeEventListener('mouseenter', handleMouseEnter);
+            }
+        };
+    }, [showSlideshowFullscreen]);
 
     useEffect(() => {
         if (slideshowItems.length > 0 && slideshowIndex >= slideshowItems.length) {
@@ -414,6 +517,33 @@ function App() {
         } finally {
             setLoading(false);
             setUploadProgress(0);
+        }
+    };
+
+    const handleAudioUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setAudioUploading(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('audio', file);
+
+            const res = await axios.post(`${API_URL}/settings/audio`, formData, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            setBgAudioUrl(res.data.url);
+            toast.success("Tải nhạc nền thành công!");
+        } catch (err) {
+            toast.error("Tải nhạc nền thất bại! File phải là âm thanh.");
+            console.error(err);
+        } finally {
+            setAudioUploading(false);
         }
     };
 
@@ -591,6 +721,45 @@ function App() {
             toast.error("Không thể tải ảnh!");
             console.error(err);
         }
+    };
+
+    // Auto-play slideshow functions
+    const startAutoPlaySlideshow = () => {
+        setIsAutoPlaying(true);
+        setShowSlideshowFullscreen(true);
+        setSlideshowIndex(0); // Start from beginning
+
+        // Request fullscreen after a short delay
+        setTimeout(() => {
+            const slideshowElement = document.querySelector('.slideshow-fullscreen');
+            if (slideshowElement && slideshowElement.requestFullscreen) {
+                slideshowElement.requestFullscreen();
+            } else if (slideshowElement && slideshowElement.webkitRequestFullscreen) {
+                slideshowElement.webkitRequestFullscreen();
+            } else if (slideshowElement && slideshowElement.msRequestFullscreen) {
+                slideshowElement.msRequestFullscreen();
+            }
+        }, 100);
+    };
+
+    const toggleAutoPlay = () => {
+        setIsAutoPlaying(!isAutoPlaying);
+    };
+
+    const closeFullscreenSlideshow = () => {
+        // Exit fullscreen if in fullscreen mode
+        if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+
+        setShowSlideshowFullscreen(false);
+        setIsAutoPlaying(false);
     };
 
     return (
@@ -1350,6 +1519,62 @@ function App() {
                 </section>
             )}
 
+            {/* Admin Audio Player */}
+            {isAdmin && (
+                <section className="max-w-5xl mx-auto px-4 mt-8 relative z-20">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="wedding-card rounded-3xl shadow-wedding-lg p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-wedding-blue-100 flex items-center justify-center shrink-0">
+                                <Music size={24} className="text-wedding-blue-600" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl sm:text-2xl font-playfair font-bold text-wedding-blue-900 mb-1">
+                                    Nhạc nền (Admin)
+                                </h2>
+                                <p className="text-sm text-wedding-blue-600">
+                                    Upload file nhạc (MP3, WAV) để thay đổi nhạc nền
+                                </p>
+                            </div>
+                        </div>
+                        <div className="w-full sm:w-auto flex flex-col items-center gap-4">
+                            <audio controls loop className="w-full sm:w-72" src={bgAudioUrl}>
+                                Trình duyệt của bạn không hỗ trợ thẻ audio.
+                            </audio>
+                            <label className={`
+                                inline-flex items-center justify-center gap-2 px-6 py-2 rounded-full font-bold text-sm sm:text-base transition-all cursor-pointer shadow-md
+                                ${audioUploading
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'wedding-gradient text-white hover:shadow-lg active:scale-95 border border-wedding-blue-300'
+                                }
+                            `}>
+                                {audioUploading ? (
+                                    <>
+                                        <Loader2 className="animate-spin" size={18} />
+                                        <span>Đang tải...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Music size={18} />
+                                        <span>Tải nhạc lên</span>
+                                    </>
+                                )}
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    onChange={handleAudioUpload}
+                                    disabled={audioUploading}
+                                    accept="audio/mpeg, audio/mp3, audio/wav"
+                                />
+                            </label>
+                        </div>
+                    </motion.div>
+                </section>
+            )}
+
             {/* Image Zoom Modal */}
             {
                 zoomedImage && (
@@ -1523,52 +1748,82 @@ function App() {
 
             {/* Fullscreen Slideshow Modal */}
             {showSlideshowFullscreen && slideshowItems.length > 0 && (
-                <div className="fixed inset-0 bg-black z-[100] flex flex-col">
-                    <button
-                        type="button"
-                        onClick={() => setShowSlideshowFullscreen(false)}
-                        className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
-                        aria-label="Đóng"
-                    >
-                        <X size={24} />
-                    </button>
-                    <div className="flex-1 flex items-center justify-center p-4 min-h-0">
-                        <img
-                            key={slideshowItems[slideshowIndex]?._id}
-                            src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
-                            alt={`Slideshow ${slideshowIndex + 1}`}
-                            className="max-w-full max-h-full object-contain"
-                        />
+                <div className="slideshow-fullscreen">
+
+                    <div className="flex-1 flex items-center justify-center p-4 min-h-0 relative">
+                        <AnimatePresence mode="wait">
+                            <motion.img
+                                key={slideshowItems[slideshowIndex]?._id}
+                                src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
+                                alt={`Slideshow ${slideshowIndex + 1}`}
+                                className="slideshow-fullscreen-image max-w-90vw max-h-90vh object-contain"
+                                initial={{ opacity: 0, scale: 0.8, y: 50 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 1.1, y: -50 }}
+                                transition={{
+                                    duration: 1,
+                                    ease: [0.25, 0.46, 0.45, 0.94]
+                                }}
+                            />
+                        </AnimatePresence>
                     </div>
                     {slideshowItems.length > 1 && (
                         <>
-                            <button
-                                type="button"
-                                onClick={() => setSlideshowIndex((i) => (i - 1 + slideshowItems.length) % slideshowItems.length)}
-                                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
-                                aria-label="Ảnh trước"
-                            >
-                                <ChevronLeft size={28} />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setSlideshowIndex((i) => (i + 1) % slideshowItems.length)}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
-                                aria-label="Ảnh sau"
-                            >
-                                <ChevronRight size={28} />
-                            </button>
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
-                                {slideshowItems.map((_, idx) => (
-                                    <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() => setSlideshowIndex(idx)}
-                                        className={`w-3 h-3 rounded-full transition-all ${idx === slideshowIndex ? 'bg-white scale-110' : 'bg-white/50 hover:bg-white/70'}`}
-                                        aria-label={`Slide ${idx + 1}`}
-                                    />
-                                ))}
-                            </div>
+                            {showControls && (
+                                <div className="absolute inset-x-0 bottom-6 sm:bottom-10 z-50 flex flex-col items-center justify-end gap-4 px-4 pointer-events-none" style={{
+                                    opacity: showControls ? 1 : 0,
+                                    transition: 'opacity 0.3s ease-in-out'
+                                }}>
+                                    <div className="flex items-center gap-6 bg-black/40 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 pointer-events-auto">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSlideshowIndex((i) => (i - 1 + slideshowItems.length) % slideshowItems.length)}
+                                            className="text-white bg-white/10 hover:bg-white/30 rounded-full p-2.5 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-110 active:scale-95 border border-white/10"
+                                            aria-label="Ảnh trước"
+                                        >
+                                            <ChevronLeft size={24} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={toggleAutoPlay}
+                                            className="text-white bg-white/10 hover:bg-white/30 rounded-full p-3 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-110 active:scale-95 border border-white/10"
+                                            aria-label={isAutoPlaying ? "Tạm dừng" : "Chơi tự động"}
+                                        >
+                                            {isAutoPlaying ? (
+                                                <div className="w-6 h-6 flex items-center justify-center gap-[3px]">
+                                                    <div className="w-1.5 h-4 bg-white rounded-[1px]" />
+                                                    <div className="w-1.5 h-4 bg-white rounded-[1px]" />
+                                                </div>
+                                            ) : (
+                                                <div className="w-6 h-6 flex items-center justify-center">
+                                                    <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent ml-1" />
+                                                </div>
+                                            )}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSlideshowIndex((i) => (i + 1) % slideshowItems.length)}
+                                            className="text-white bg-white/10 hover:bg-white/30 rounded-full p-2.5 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-110 active:scale-95 border border-white/10"
+                                            aria-label="Ảnh sau"
+                                        >
+                                            <ChevronRight size={24} />
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-center gap-2 bg-black/40 backdrop-blur-md px-5 py-2.5 rounded-3xl border border-white/20 pointer-events-auto max-w-[90vw]">
+                                        {slideshowItems.map((_, idx) => (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => setSlideshowIndex(idx)}
+                                                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === slideshowIndex
+                                                    ? 'bg-white scale-150 shadow-[0_0_12px_rgba(255,255,255,0.8)]'
+                                                    : 'bg-white/40 hover:bg-white/80'}`}
+                                                aria-label={`Slide ${idx + 1}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
@@ -1621,57 +1876,99 @@ function App() {
                         <h2 className="text-3xl sm:text-4xl font-playfair font-bold text-wedding-blue-900 text-center mb-6">
                             Slideshow <span className="gold-accent">cưới</span>
                         </h2>
-                        <div className="relative max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl border-2 border-wedding-gold-200/50 bg-black/5">
-                            <div className="aspect-[16/10] sm:aspect-video relative">
-                                <img
-                                    key={slideshowItems[slideshowIndex]?._id}
-                                    src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
-                                    alt={`Slideshow ${slideshowIndex + 1}`}
-                                    className="w-full h-full object-contain bg-black/10"
-                                />
+                        <div className="slideshow-container max-w-4xl mx-auto">
+                            <div className="slideshow-image-wrapper aspect-[16/10] sm:aspect-video relative overflow-hidden">
+                                <AnimatePresence mode="wait" custom={slideshowIndex}>
+                                    <motion.img
+                                        key={slideshowItems[slideshowIndex]?._id}
+                                        src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
+                                        alt={`Slideshow ${slideshowIndex + 1}`}
+                                        className="slideshow-image w-full h-full object-cover"
+                                        variants={{
+                                            enter: { opacity: 0, scale: 1.1, x: 100 },
+                                            center: { opacity: 1, scale: 1, x: 0 },
+                                            exit: { opacity: 0, scale: 0.9, x: -100 }
+                                        }}
+                                        initial="enter"
+                                        animate="center"
+                                        exit="exit"
+                                        transition={{
+                                            duration: 0.8,
+                                            ease: [0.25, 0.46, 0.45, 0.94]
+                                        }}
+                                    />
+                                </AnimatePresence>
+                                <div className="slideshow-overlay" />
                                 {slideshowItems.length > 1 && (
-                                    <>
+                                    <div className="slideshow-controls">
                                         <button
                                             type="button"
                                             onClick={() => setSlideshowIndex((i) => (i - 1 + slideshowItems.length) % slideshowItems.length)}
-                                            className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-wedding-blue-800 hover:bg-white transition-colors"
+                                            className="slideshow-control-btn"
                                             aria-label="Ảnh trước"
                                         >
-                                            <ChevronLeft size={24} />
+                                            <ChevronLeft size={20} />
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setSlideshowIndex((i) => (i + 1) % slideshowItems.length)}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-wedding-blue-800 hover:bg-white transition-colors"
+                                            className="slideshow-control-btn"
                                             aria-label="Ảnh sau"
                                         >
-                                            <ChevronRight size={24} />
+                                            <ChevronRight size={20} />
                                         </button>
-                                    </>
+                                    </div>
                                 )}
+                                <div className="slideshow-info">
+                                    <p className="text-sm font-medium text-wedding-blue-800">
+                                        Ảnh {slideshowIndex + 1} / {slideshowItems.length}
+                                    </p>
+                                    <p className="text-xs text-wedding-blue-600 mt-1">
+                                        {slideshowItems[slideshowIndex]?.category || 'Ảnh cưới'}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="flex items-center justify-between gap-4 p-4 bg-gradient-to-r from-wedding-blue-50 to-wedding-blue-100/80">
-                                <div className="flex gap-1.5 overflow-x-auto py-1">
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-gradient-to-r from-wedding-blue-50 to-wedding-blue-100/80">
+                                <div className="flex flex-wrap justify-center gap-2 max-w-full order-2 md:order-1 flex-1">
                                     {slideshowItems.map((_, idx) => (
                                         <button
                                             key={idx}
                                             type="button"
                                             onClick={() => setSlideshowIndex(idx)}
-                                            className={`w-2.5 h-2.5 rounded-full shrink-0 transition-all ${idx === slideshowIndex ? 'bg-wedding-blue-600 scale-125' : 'bg-wedding-blue-300 hover:bg-wedding-blue-400'}`}
+                                            className={`w-3 h-3 rounded-full cursor-pointer transition-all duration-300 ${idx === slideshowIndex
+                                                ? 'bg-wedding-blue-600 scale-125 shadow-[0_0_10px_rgba(2,132,199,0.5)]'
+                                                : 'bg-wedding-blue-300 hover:bg-wedding-blue-400'}`}
                                             aria-label={`Slide ${idx + 1}`}
                                         />
                                     ))}
                                 </div>
-                                <motion.button
-                                    whileHover={{ scale: 1.03 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => setShowSlideshowFullscreen(true)}
-                                    className="inline-flex items-center gap-2 wedding-gradient text-white px-4 py-2 rounded-full font-semibold text-sm shadow-lg"
-                                >
-                                    <Film size={18} />
-                                    Xem slideshow
-                                </motion.button>
+                                <div className="flex items-center justify-center gap-3 flex-shrink-0 order-1 md:order-2 w-full md:w-auto">
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={startAutoPlaySlideshow}
+                                        className="inline-flex items-center gap-2 bg-gradient-to-r from-wedding-gold-400 to-wedding-gold-600 text-white px-4 py-2 rounded-full font-semibold text-sm shadow-lg hover:shadow-wedding-lg transition-all duration-300"
+                                    >
+                                        <Sparkles size={18} />
+                                        Chạy slideshow tự động
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={() => setShowSlideshowFullscreen(true)}
+                                        className="inline-flex items-center gap-2 wedding-gradient text-white px-4 py-2 rounded-full font-semibold text-sm shadow-lg"
+                                    >
+                                        <Film size={18} />
+                                        Xem slideshow
+                                    </motion.button>
+                                </div>
                             </div>
+                            <div
+                                className="slideshow-progress"
+                                style={{
+                                    transform: `scaleX(${((slideshowIndex + 1) / slideshowItems.length)})`
+                                }}
+                            />
                         </div>
                     </motion.div>
                 )}
@@ -1775,127 +2072,127 @@ function App() {
                             className="gallery-item group cursor-pointer transform transition-all duration-300 hover:scale-105 rounded-2xl overflow-hidden"
                             onClick={() => setZoomedImage(item)}
                         >
-                                {/* Media Container */}
-                                <div className="aspect-square relative overflow-hidden rounded-2xl shadow-2xl group-hover:shadow-3xl transition-all duration-500 border-2 border-white/30 backdrop-blur-sm bg-gradient-to-br from-white/5 to-transparent">
-                                    {/* Decorative corner elements */}
-                                    <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-wedding-gold-400/40 rounded-tl-lg" />
-                                    <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-wedding-gold-400/40 rounded-tr-lg" />
-                                    <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-wedding-gold-400/40 rounded-bl-lg" />
-                                    <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-wedding-gold-400/40 rounded-br-lg" />
+                            {/* Media Container */}
+                            <div className="aspect-square relative overflow-hidden rounded-2xl shadow-2xl group-hover:shadow-3xl transition-all duration-500 border-2 border-white/30 backdrop-blur-sm bg-gradient-to-br from-white/5 to-transparent">
+                                {/* Decorative corner elements */}
+                                <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-wedding-gold-400/40 rounded-tl-lg" />
+                                <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-wedding-gold-400/40 rounded-tr-lg" />
+                                <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-wedding-gold-400/40 rounded-bl-lg" />
+                                <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-wedding-gold-400/40 rounded-br-lg" />
 
-                                    {/* Inner frame */}
-                                    <div className="absolute inset-1 border border-wedding-gold-300/20 rounded-xl pointer-events-none" />
+                                {/* Inner frame */}
+                                <div className="absolute inset-1 border border-wedding-gold-300/20 rounded-xl pointer-events-none" />
 
-                                    {/* Image wrapper with proper rounding */}
-                                    <div className="absolute inset-0 rounded-xl overflow-hidden">
-                                        {item.type === 'video' ? (
-                                            item.posterUrl ? (
-                                                <LazyImage
-                                                    src={item.posterUrl}
-                                                    alt={`Video - ${item.category}`}
-                                                    wrapperClassName="w-full h-full"
-                                                    imgClassName="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
-                                                    loading={index < 8 ? 'eager' : 'lazy'}
-                                                    fetchPriority={index < 4 ? 'high' : 'auto'}
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full bg-black/30 flex items-center justify-center">
-                                                    <Video size={48} className="text-white/80" />
-                                                </div>
-                                            )
-                                        ) : (
+                                {/* Image wrapper with proper rounding */}
+                                <div className="absolute inset-0 rounded-xl overflow-hidden">
+                                    {item.type === 'video' ? (
+                                        item.posterUrl ? (
                                             <LazyImage
-                                                src={item.thumbUrl || item.url}
-                                                srcSet={item.srcSet}
-                                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                                                alt={item.category}
+                                                src={item.posterUrl}
+                                                alt={`Video - ${item.category}`}
                                                 wrapperClassName="w-full h-full"
                                                 imgClassName="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
                                                 loading={index < 8 ? 'eager' : 'lazy'}
                                                 fetchPriority={index < 4 ? 'high' : 'auto'}
                                             />
-                                        )}
-                                    </div>
+                                        ) : (
+                                            <div className="w-full h-full bg-black/30 flex items-center justify-center">
+                                                <Video size={48} className="text-white/80" />
+                                            </div>
+                                        )
+                                    ) : (
+                                        <LazyImage
+                                            src={item.thumbUrl || item.url}
+                                            srcSet={item.srcSet}
+                                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                                            alt={item.category}
+                                            wrapperClassName="w-full h-full"
+                                            imgClassName="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+                                            loading={index < 8 ? 'eager' : 'lazy'}
+                                            fetchPriority={index < 4 ? 'high' : 'auto'}
+                                        />
+                                    )}
+                                </div>
 
-                                    {/* Video Indicator */}
-                                    {item.type === 'video' && (
-                                        <div className="absolute top-3 left-3 bg-wedding-gold-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                                            <Video size={12} />
-                                            <span>Video</span>
+                                {/* Video Indicator */}
+                                {item.type === 'video' && (
+                                    <div className="absolute top-3 left-3 bg-wedding-gold-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                        <Video size={12} />
+                                        <span>Video</span>
+                                    </div>
+                                )}
+
+                                {/* Enhanced Overlay */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-xl">
+                                    {/* Decorative overlay pattern */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-wedding-gold-400/20 via-transparent to-wedding-blue-400/20 rounded-xl" />
+                                </div>
+                            </div>
+
+                            {/* Enhanced Content */}
+                            <div className="p-4 bg-gradient-to-br from-white/95 to-wedding-blue-50/90 backdrop-blur-md rounded-b-2xl border-x border-b border-white/40 shadow-lg">
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs font-semibold text-wedding-blue-700 bg-gradient-to-r from-wedding-gold-100 to-wedding-blue-100 px-3 py-1.5 rounded-full border border-wedding-gold-300/40 shadow-sm">
+                                        {item.category}
+                                    </span>
+                                    <span className="text-xs text-wedding-blue-600 font-medium bg-white/70 px-2 py-1 rounded-full">
+                                        {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                                    </span>
+                                </div>
+
+                                {/* Enhanced Actions */}
+                                <div className="flex justify-between items-center gap-2">
+                                    <motion.button
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleLike(item._id);
+                                        }}
+                                        disabled={likingPhotoId === item._id}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 shadow-md hover:shadow-lg ${likingPhotoId === item._id
+                                            ? 'bg-gray-200 cursor-not-allowed'
+                                            : 'bg-gradient-to-r from-pink-50 to-red-50 hover:from-pink-100 hover:to-red-100 text-pink-600 hover:text-red-600 border border-pink-200/50'
+                                            }`}
+                                    >
+                                        {likingPhotoId === item._id ? (
+                                            <Loader2 size={14} className="animate-spin" />
+                                        ) : (
+                                            <Heart size={14} className={item.likes > 0 ? "text-red-500 fill-current animate-pulse" : ""} />
+                                        )}
+                                        <span className="text-xs font-bold">{item.likes}</span>
+                                    </motion.button>
+
+                                    {isAdmin && (
+                                        <div className="flex items-center gap-1">
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingPhoto(item);
+                                                    setNewCategoryForPhoto(item.category);
+                                                }}
+                                                className="text-blue-500 hover:text-blue-700 transition-colors p-1.5 bg-blue-50 hover:bg-blue-100 rounded-lg shadow-sm hover:shadow-md"
+                                                title="Sửa danh mục"
+                                            >
+                                                <Edit size={14} />
+                                            </motion.button>
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(item._id);
+                                                }}
+                                                className="text-red-500 hover:text-red-700 transition-colors p-1.5 bg-red-50 hover:bg-red-100 rounded-lg shadow-sm hover:shadow-md"
+                                            >
+                                                <Trash2 size={14} />
+                                            </motion.button>
                                         </div>
                                     )}
-
-                                    {/* Enhanced Overlay */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-xl">
-                                        {/* Decorative overlay pattern */}
-                                        <div className="absolute inset-0 bg-gradient-to-br from-wedding-gold-400/20 via-transparent to-wedding-blue-400/20 rounded-xl" />
-                                    </div>
                                 </div>
-
-                                {/* Enhanced Content */}
-                                <div className="p-4 bg-gradient-to-br from-white/95 to-wedding-blue-50/90 backdrop-blur-md rounded-b-2xl border-x border-b border-white/40 shadow-lg">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <span className="text-xs font-semibold text-wedding-blue-700 bg-gradient-to-r from-wedding-gold-100 to-wedding-blue-100 px-3 py-1.5 rounded-full border border-wedding-gold-300/40 shadow-sm">
-                                            {item.category}
-                                        </span>
-                                        <span className="text-xs text-wedding-blue-600 font-medium bg-white/70 px-2 py-1 rounded-full">
-                                            {new Date(item.createdAt).toLocaleDateString('vi-VN')}
-                                        </span>
-                                    </div>
-
-                                    {/* Enhanced Actions */}
-                                    <div className="flex justify-between items-center gap-2">
-                                        <motion.button
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleLike(item._id);
-                                            }}
-                                            disabled={likingPhotoId === item._id}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 shadow-md hover:shadow-lg ${likingPhotoId === item._id
-                                                ? 'bg-gray-200 cursor-not-allowed'
-                                                : 'bg-gradient-to-r from-pink-50 to-red-50 hover:from-pink-100 hover:to-red-100 text-pink-600 hover:text-red-600 border border-pink-200/50'
-                                                }`}
-                                        >
-                                            {likingPhotoId === item._id ? (
-                                                <Loader2 size={14} className="animate-spin" />
-                                            ) : (
-                                                <Heart size={14} className={item.likes > 0 ? "text-red-500 fill-current animate-pulse" : ""} />
-                                            )}
-                                            <span className="text-xs font-bold">{item.likes}</span>
-                                        </motion.button>
-
-                                        {isAdmin && (
-                                            <div className="flex items-center gap-1">
-                                                <motion.button
-                                                    whileHover={{ scale: 1.1 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setEditingPhoto(item);
-                                                        setNewCategoryForPhoto(item.category);
-                                                    }}
-                                                    className="text-blue-500 hover:text-blue-700 transition-colors p-1.5 bg-blue-50 hover:bg-blue-100 rounded-lg shadow-sm hover:shadow-md"
-                                                    title="Sửa danh mục"
-                                                >
-                                                    <Edit size={14} />
-                                                </motion.button>
-                                                <motion.button
-                                                    whileHover={{ scale: 1.1 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(item._id);
-                                                    }}
-                                                    className="text-red-500 hover:text-red-700 transition-colors p-1.5 bg-red-50 hover:bg-red-100 rounded-lg shadow-sm hover:shadow-md"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </motion.button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                            </div>
                         </div>
                     ))}
                 </div>
