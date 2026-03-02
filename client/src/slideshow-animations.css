@@ -184,12 +184,13 @@
 
 .slideshow-fullscreen-bg {
     position: absolute;
-    top: -10%;
-    left: -10%;
-    width: 120%;
-    height: 120%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     filter: blur(40px) brightness(0.4);
+    transform: scale(1.2);
     z-index: 0;
     pointer-events: none;
     transition: opacity 0.5s ease-in-out;
