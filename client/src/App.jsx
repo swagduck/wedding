@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight, Music } from 'lucide-react';
+import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight, Music, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 import './slideshow-animations.css';
+import Masonry from 'react-masonry-css';
+import Guestbook from './Guestbook';
+import LoveStory from './LoveStory';
 
 const LazyImage = React.memo(
     ({
@@ -92,6 +95,21 @@ function App() {
     const [isAutoPlaying, setIsAutoPlaying] = useState(false);
     const [showControls, setShowControls] = useState(true);
 
+    // Dark Mode
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const saved = localStorage.getItem('weddingDarkMode');
+        return saved === 'true';
+    });
+
+    useEffect(() => {
+        if (isDarkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('weddingDarkMode', isDarkMode);
+    }, [isDarkMode]);
+
     const floatingDecor = React.useMemo(() => {
         const hearts = [...Array(12)].map((_, i) => ({
             key: `heart-${i}`,
@@ -106,7 +124,7 @@ function App() {
             size: 12 + Math.random() * 18,
             left: `${Math.random() * 100}%`,
             animationDuration: `${4 + Math.random() * 4}s`,
-            color: 'rgba(2, 132, 199, 0.3)',
+            color: 'rgba(2,132,199,0.3)',
         }));
 
         const particles = [...Array(20)].map((_, i) => ({
@@ -864,8 +882,20 @@ function App() {
                     </div>
                 </div>
 
-                {/* Admin Login/Logout Button */}
-                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+                {/* Top Right Controls (Dark Mode & Admin) */}
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 flex items-center gap-2 sm:gap-4">
+                    {/* Dark Mode Toggle */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30 transition-all duration-200 border border-white/20"
+                        title={isDarkMode ? "Chế độ sáng" : "Chế độ tối"}
+                    >
+                        {isDarkMode ? <Sun size={20} className="sm:size-24" /> : <Moon size={20} className="sm:size-24" />}
+                    </motion.button>
+
+                    {/* Admin Login/Logout Button */}
                     {isAdmin ? (
                         <motion.button
                             whileHover={{ scale: 1.05 }}
@@ -893,14 +923,15 @@ function App() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.8 }}
-                    className="z-10 text-center px-4"
+                    className="z-10 text-center px-8 py-10 md:px-16 md:py-12 rounded-[2.5rem] bg-white/10 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1)] relative"
                 >
+                    <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
                     <div className="relative">
-                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-playfair font-black mb-4 sm:mb-6 tracking-tight">
-                            <span className="shimmer-text">Wedding</span>
-                            <span className="gold-accent"> Gallery</span>
+                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-playfair font-black mb-4 sm:mb-6 tracking-tight drop-shadow-md">
+                            <span className="shimmer-text text-white">Wedding</span>
+                            <span className="gold-accent drop-shadow-[0_0_15px_rgba(250,204,21,0.4)]"> Gallery</span>
                         </h1>
-                        <div className="absolute -top-4 -right-8 text-wedding-gold-400 animate-pulse-slow">
+                        <div className="absolute -top-6 -right-10 text-wedding-gold-400 animate-pulse-slow drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]">
                             <Sparkles size={32} fill="currentColor" className="sparkle" />
                         </div>
                     </div>
@@ -909,7 +940,7 @@ function App() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-dancing font-bold mb-6 sm:mb-8 gold-accent"
+                        className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-dancing font-bold mb-6 sm:mb-8 gold-accent drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)] tracking-wide relative z-10"
                     >
                         Nhật Huy & Thiên Ý
                     </motion.p>
@@ -948,13 +979,13 @@ function App() {
                             className="wedding-card rounded-3xl p-10 max-w-md w-full border border-wedding-blue-200"
                         >
                             <div className="text-center mb-8">
-                                <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 rounded-full mb-4">
-                                    <LogIn size={28} className="text-wedding-blue-600" />
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 dark:bg-slate-800 rounded-full mb-4">
+                                    <LogIn size={28} className="text-wedding-blue-600 dark:text-wedding-blue-400" />
                                 </div>
-                                <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 mb-2">
+                                <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 dark:text-wedding-blue-50 mb-2">
                                     Đăng nhập Admin
                                 </h3>
-                                <p className="text-wedding-blue-600">
+                                <p className="text-wedding-blue-600 dark:text-wedding-blue-300">
                                     Nhập mật khẩu để quản lý thư viện
                                 </p>
                             </div>
@@ -964,7 +995,7 @@ function App() {
                                 placeholder="Nhập mật khẩu admin"
                                 value={adminPassword}
                                 onChange={(e) => setAdminPassword(e.target.value)}
-                                className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-wedding-blue-200 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500 text-base sm:text-lg transition-all"
+                                className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-wedding-blue-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500 text-base sm:text-lg transition-all"
                                 onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                             />
 
@@ -1005,13 +1036,13 @@ function App() {
                             className="wedding-card rounded-3xl p-8 max-w-md w-full border border-wedding-blue-200"
                         >
                             <div className="text-center mb-6">
-                                <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 rounded-full mb-4">
-                                    <Plus size={28} className="text-wedding-blue-600" />
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-wedding-blue-100 dark:bg-slate-800 rounded-full mb-4">
+                                    <Plus size={28} className="text-wedding-blue-600 dark:text-wedding-blue-400" />
                                 </div>
-                                <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 mb-2">
+                                <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 dark:text-wedding-blue-50 mb-2">
                                     Thêm danh mục mới
                                 </h3>
-                                <p className="text-wedding-blue-600">
+                                <p className="text-wedding-blue-600 dark:text-wedding-blue-300">
                                     Tạo danh mục media mới cho gallery
                                 </p>
                             </div>
@@ -1021,7 +1052,7 @@ function App() {
                                 placeholder="Nhập tên danh mục mới"
                                 value={newCategory}
                                 onChange={(e) => setNewCategory(e.target.value)}
-                                className="w-full px-4 py-3 border-2 border-wedding-blue-200 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500"
+                                className="w-full px-4 py-3 border-2 border-wedding-blue-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-wedding-blue-500 focus:border-wedding-blue-500"
                                 onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
                             />
 
@@ -1072,13 +1103,13 @@ function App() {
                             </motion.button>
 
                             <div className="text-center mb-8">
-                                <div className="inline-flex items-center justify-center w-20 h-20 bg-wedding-blue-100 rounded-full mb-6 animate-pulse-slow pulse-glow">
-                                    <Share2 size={36} className="text-wedding-blue-600" />
+                                <div className="inline-flex items-center justify-center w-20 h-20 bg-wedding-blue-100 dark:bg-slate-800 rounded-full mb-6 animate-pulse-slow pulse-glow">
+                                    <Share2 size={36} className="text-wedding-blue-600 dark:text-wedding-blue-400" />
                                 </div>
-                                <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 mb-2">
+                                <h3 className="text-3xl font-playfair font-bold text-wedding-blue-900 dark:text-wedding-blue-50 mb-2">
                                     Chia sẻ <span className="gold-accent">Gallery</span>
                                 </h3>
-                                <p className="text-wedding-blue-600">
+                                <p className="text-wedding-blue-600 dark:text-wedding-blue-300">
                                     Quét mã QR để truy cập thư viện ảnh cưới
                                 </p>
                             </div>
@@ -1918,15 +1949,16 @@ function App() {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
-                    className="text-center mb-16"
+                    className="text-center mb-16 relative"
                 >
-                    <h2 className="text-5xl font-playfair font-bold text-wedding-blue-900 mb-4">
-                        Khoảnh khắc <span className="gold-accent">yêu thương</span>
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-wedding-blue-200/20 rounded-full blur-3xl pointer-events-none" />
+                    <h2 className="text-4xl sm:text-5xl lg:text-6xl font-playfair font-black text-wedding-blue-900 dark:text-wedding-blue-50 mb-4 drop-shadow-sm tracking-tight relative z-10">
+                        Khoảnh khắc <span className="gold-accent drop-shadow-[0_2px_10px_rgba(250,204,21,0.3)]">yêu thương</span>
                     </h2>
-                    <p className="text-2xl sm:text-3xl md:text-4xl text-wedding-blue-700 font-dancing">
+                    <p className="text-2xl sm:text-3xl md:text-4xl text-wedding-blue-700/80 dark:text-wedding-blue-200/80 font-dancing tracking-wide relative z-10">
                         Những kỷ niệm đẹp đẽ của chúng ta
                     </p>
-                    <div className="mt-6 h-1 w-32 bg-gradient-to-r from-wedding-blue-400 to-wedding-gold-400 mx-auto rounded-full" />
+                    <div className="mt-8 h-1 w-40 bg-gradient-to-r from-transparent via-wedding-blue-400 to-transparent mx-auto rounded-full opacity-70 relative z-10" />
                 </motion.div>
 
                 {/* Share QR Code Button */}
@@ -1956,7 +1988,7 @@ function App() {
                         transition={{ delay: 0.55 }}
                         className="mb-16"
                     >
-                        <h2 className="text-3xl sm:text-4xl font-playfair font-bold text-wedding-blue-900 text-center mb-6">
+                        <h2 className="text-3xl sm:text-4xl font-playfair font-bold text-wedding-blue-900 dark:text-wedding-blue-50 text-center mb-6">
                             Slideshow <span className="gold-accent">cưới</span>
                         </h2>
                         <div className="slideshow-container max-w-4xl mx-auto">
@@ -2064,16 +2096,16 @@ function App() {
                     className="text-center mb-12"
                 >
                     {/* Type Filter */}
-                    <div className="mb-6">
-                        <h3 className="text-lg font-semibold text-wedding-blue-800 mb-3">Loại media:</h3>
+                    <div className="mb-8">
+                        <h3 className="text-lg font-semibold text-wedding-blue-800/80 dark:text-wedding-blue-200/80 mb-4 tracking-wide">Loại media</h3>
                         <div className="flex justify-center gap-3 flex-wrap">
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setFilterType('tất cả')}
-                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterType === 'tất cả'
-                                    ? 'wedding-gradient text-white shadow-wedding-lg'
-                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                className={`px-5 py-2.5 rounded-full font-bold transition-all duration-300 text-sm ${filterType === 'tất cả'
+                                    ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white shadow-[0_4px_15px_rgba(2,132,199,0.4)]'
+                                    : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-wedding-blue-700 dark:text-wedding-blue-200 hover:bg-wedding-blue-50 dark:hover:bg-slate-700 border border-wedding-blue-200 dark:border-slate-700 shadow-sm'
                                     }`}
                             >
                                 <div className="flex items-center gap-2">
@@ -2085,9 +2117,9 @@ function App() {
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setFilterType('image')}
-                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterType === 'image'
-                                    ? 'wedding-gradient text-white shadow-wedding-lg'
-                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                className={`px-5 py-2.5 rounded-full font-bold transition-all duration-300 text-sm ${filterType === 'image'
+                                    ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white shadow-[0_4px_15px_rgba(2,132,199,0.4)]'
+                                    : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-wedding-blue-700 dark:text-wedding-blue-200 hover:bg-wedding-blue-50 dark:hover:bg-slate-700 border border-wedding-blue-200 dark:border-slate-700 shadow-sm'
                                     }`}
                             >
                                 <div className="flex items-center gap-2">
@@ -2099,9 +2131,9 @@ function App() {
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setFilterType('video')}
-                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterType === 'video'
-                                    ? 'wedding-gradient text-white shadow-wedding-lg'
-                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                className={`px-5 py-2.5 rounded-full font-bold transition-all duration-300 text-sm ${filterType === 'video'
+                                    ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white shadow-[0_4px_15px_rgba(2,132,199,0.4)]'
+                                    : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-wedding-blue-700 dark:text-wedding-blue-200 hover:bg-wedding-blue-50 dark:hover:bg-slate-700 border border-wedding-blue-200 dark:border-slate-700 shadow-sm'
                                     }`}
                             >
                                 <div className="flex items-center gap-2">
@@ -2114,15 +2146,15 @@ function App() {
 
                     {/* Category Filter */}
                     <div>
-                        <h3 className="text-lg font-semibold text-wedding-blue-800 mb-3">Danh mục:</h3>
+                        <h3 className="text-lg font-semibold text-wedding-blue-800/80 dark:text-wedding-blue-200/80 mb-4 tracking-wide">Danh mục</h3>
                         <div className="flex justify-center gap-3 flex-wrap">
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setFilterCategory('tất cả')}
-                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterCategory === 'tất cả'
-                                    ? 'wedding-gradient text-white shadow-wedding-lg'
-                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                className={`px-5 py-2.5 rounded-full font-bold transition-all duration-300 text-sm ${filterCategory === 'tất cả'
+                                    ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white shadow-[0_4px_15px_rgba(2,132,199,0.4)]'
+                                    : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-wedding-blue-700 dark:text-wedding-blue-200 hover:bg-wedding-blue-50 dark:hover:bg-slate-700 border border-wedding-blue-200 dark:border-slate-700 shadow-sm'
                                     }`}
                             >
                                 <div className="flex items-center gap-2">
@@ -2136,9 +2168,9 @@ function App() {
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setFilterCategory(category)}
-                                    className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 text-sm ${filterCategory === category
-                                        ? 'wedding-gradient text-white shadow-wedding-lg'
-                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                    className={`px-5 py-2.5 rounded-full font-bold transition-all duration-300 text-sm ${filterCategory === category
+                                        ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white shadow-[0_4px_15px_rgba(2,132,199,0.4)]'
+                                        : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-wedding-blue-700 dark:text-wedding-blue-200 hover:bg-wedding-blue-50 dark:hover:bg-slate-700 border border-wedding-blue-200 dark:border-slate-700 shadow-sm'
                                         }`}
                                 >
                                     {category}
@@ -2148,15 +2180,33 @@ function App() {
                     </div>
                 </motion.div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+                <Masonry
+                    breakpointCols={{
+                        default: 4,
+                        1280: 4,
+                        1024: 3,
+                        768: 2,
+                        500: 1
+                    }}
+                    className="flex w-auto -ml-4 sm:-ml-6 lg:-ml-8"
+                    columnClassName="pl-4 sm:pl-6 lg:pl-8 bg-clip-padding"
+                >
                     {media.map((item, index) => (
-                        <div
+                        <motion.div
                             key={item._id}
-                            className="gallery-item group cursor-pointer transform transition-all duration-300 hover:scale-105 rounded-2xl overflow-hidden"
+                            variants={{
+                                hidden: { opacity: 0, scale: 0.9, y: 30 },
+                                visible: { opacity: 1, scale: 1, y: 0 }
+                            }}
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true, margin: "-50px" }}
+                            transition={{ duration: 0.5, delay: (index % 10) * 0.1 }}
+                            className="gallery-item group cursor-pointer transform transition-all duration-500 hover:-translate-y-2 rounded-2xl overflow-hidden mb-4 sm:mb-6 lg:mb-8"
                             onClick={() => setZoomedImage(item)}
                         >
                             {/* Media Container */}
-                            <div className="aspect-square relative overflow-hidden rounded-2xl shadow-2xl group-hover:shadow-3xl transition-all duration-500 border-2 border-white/30 backdrop-blur-sm bg-gradient-to-br from-white/5 to-transparent">
+                            <div className="aspect-square relative overflow-hidden rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] group-hover:shadow-[0_20px_40px_rgba(2,132,199,0.2)] transition-all duration-500 border border-white/60 backdrop-blur-sm bg-white/40">
                                 {/* Decorative corner elements */}
                                 <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-wedding-gold-400/40 rounded-tl-lg" />
                                 <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-wedding-gold-400/40 rounded-tr-lg" />
@@ -2213,12 +2263,12 @@ function App() {
                             </div>
 
                             {/* Enhanced Content */}
-                            <div className="p-4 bg-gradient-to-br from-white/95 to-wedding-blue-50/90 backdrop-blur-md rounded-b-2xl border-x border-b border-white/40 shadow-lg">
+                            <div className="p-4 bg-gradient-to-br from-white/95 to-wedding-blue-50/90 dark:from-slate-800/95 dark:to-slate-900/90 backdrop-blur-md rounded-b-2xl border-x border-b border-white/40 dark:border-slate-700 shadow-lg">
                                 <div className="flex justify-between items-center mb-3">
                                     <span className="text-xs font-semibold text-wedding-blue-700 bg-gradient-to-r from-wedding-gold-100 to-wedding-blue-100 px-3 py-1.5 rounded-full border border-wedding-gold-300/40 shadow-sm">
                                         {item.category}
                                     </span>
-                                    <span className="text-xs text-wedding-blue-600 font-medium bg-white/70 px-2 py-1 rounded-full">
+                                    <span className="text-xs text-wedding-blue-600 dark:text-wedding-blue-300 font-medium bg-white/70 dark:bg-slate-800/70 px-2 py-1 rounded-full">
                                         {new Date(item.createdAt).toLocaleDateString('vi-VN')}
                                     </span>
                                 </div>
@@ -2276,9 +2326,9 @@ function App() {
                                     )}
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
-                </div>
+                </Masonry>
 
                 {
                     media.length === 0 && !loading && (
@@ -2287,16 +2337,16 @@ function App() {
                             animate={{ opacity: 1, y: 0 }}
                             className="text-center py-32"
                         >
-                            <div className="flex items-center justify-center w-32 h-32 bg-wedding-blue-100 rounded-full mb-8 pulse-glow mx-auto">
+                            <div className="flex items-center justify-center w-32 h-32 bg-wedding-blue-100 dark:bg-slate-800 rounded-full mb-8 pulse-glow mx-auto">
                                 <ImageIcon size={48} className="text-wedding-blue-400 floating" />
                             </div>
-                            <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 mb-4 text-center">
+                            <h3 className="text-2xl font-playfair font-bold text-wedding-blue-900 dark:text-wedding-blue-50 mb-4 text-center">
                                 Chưa có media nào
                             </h3>
-                            <p className="text-xl text-wedding-blue-700 mb-2 text-center">
+                            <p className="text-xl text-wedding-blue-700 dark:text-wedding-blue-200 mb-2 text-center">
                                 Hãy là người đầu tiên chia sẻ khoảnh khắc đẹp nhất!
                             </p>
-                            <p className="text-wedding-blue-600 font-dancing text-center">
+                            <p className="text-wedding-blue-600 dark:text-wedding-blue-300 font-dancing text-center">
                                 Mỗi media là một câu chuyện tình yêu
                             </p>
                         </motion.div>
@@ -2317,7 +2367,13 @@ function App() {
 
             </main >
 
-            <footer className="relative bg-gradient-to-r from-wedding-blue-900 via-wedding-blue-800 to-wedding-blue-900 text-white py-16 mt-20 overflow-hidden">
+            {/* Love Story Section */}
+            <LoveStory />
+
+            {/* Guestbook Section */}
+            <Guestbook API_URL={API_URL} isAdmin={isAdmin} />
+
+            <footer className="relative bg-gradient-to-r from-wedding-blue-900 via-wedding-blue-800 to-wedding-blue-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-white py-16 mt-0 overflow-hidden">
                 {/* Decorative background */}
                 <div className="absolute inset-0">
                     <div className="absolute top-0 left-10 w-32 h-32 bg-wedding-gold-400/10 rounded-full blur-2xl" />

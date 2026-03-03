@@ -305,6 +305,15 @@ const settingSchema = new mongoose.Schema({
 
 const Setting = mongoose.model("Setting", settingSchema);
 
+// Guestbook Schema
+const guestbookSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  message: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Guestbook = mongoose.model("Guestbook", guestbookSchema);
+
 console.log('✅ Database models initialized');
 
 // 5. Cấu hình Cloudinary & Multer (Xử lý file ảnh)
@@ -1170,6 +1179,66 @@ app.delete("/api/settings/audio/:id", authenticateAdmin, async (req, res) => {
   } catch (error) {
     console.error('❌ Error deleting audio setting:', error);
     res.status(500).json({ message: "Lỗi khi xóa bài hát", error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/guestbook
+ * @desc    Lấy danh sách lời chúc
+ */
+app.get("/api/guestbook", async (req, res) => {
+  try {
+    const messages = await Guestbook.find().sort({ createdAt: -1 }).lean();
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error('❌ Error fetching guestbook:', error);
+    res.status(500).json({ message: "Lỗi khi lấy danh sách lời chúc", error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/guestbook
+ * @desc    Thêm lời chúc mới
+ */
+app.post("/api/guestbook", async (req, res) => {
+  try {
+    const { name, message } = req.body;
+    
+    if (!name || !name.trim() || !message || !message.trim()) {
+      return res.status(400).json({ message: "Tên và lời chúc không được để trống" });
+    }
+
+    const newEntry = new Guestbook({
+      name: name.trim(),
+      message: message.trim()
+    });
+
+    await newEntry.save();
+    res.status(201).json(newEntry);
+  } catch (error) {
+    console.error('❌ Error adding guestbook entry:', error);
+    res.status(500).json({ message: "Lỗi khi gửi lời chúc", error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /api/guestbook/:id
+ * @desc    Xóa lời chúc (Chỉ admin)
+ */
+app.delete("/api/guestbook/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const entry = await Guestbook.findById(id);
+    if (!entry) {
+      return res.status(404).json({ message: "Không tìm thấy lời chúc." });
+    }
+
+    await Guestbook.findByIdAndDelete(id);
+    res.status(200).json({ message: "Đã xóa lời chúc thành công." });
+  } catch (error) {
+    console.error('❌ Error deleting guestbook entry:', error);
+    res.status(500).json({ message: "Lỗi khi xóa lời chúc", error: error.message });
   }
 });
 
