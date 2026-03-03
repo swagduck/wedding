@@ -33,7 +33,7 @@ export default function LoveStory({ API_URL, isAdmin }) {
     const fetchMilestones = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${API_URL}/api/lovestory`);
+            const response = await axios.get(`${API_URL}/lovestory`);
             setMilestones(response.data);
         } catch (error) {
             console.error("Lỗi khi tải câu chuyện tình yêu:", error);
@@ -48,7 +48,7 @@ export default function LoveStory({ API_URL, isAdmin }) {
 
         try {
             const token = localStorage.getItem('wedding_admin_token');
-            await axios.delete(`${API_URL}/api/lovestory/${id}`, {
+            await axios.delete(`${API_URL}/lovestory/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success("Đã xóa mốc thời gian thành công!");
@@ -107,7 +107,7 @@ export default function LoveStory({ API_URL, isAdmin }) {
             }
 
             if (editingItem) {
-                await axios.put(`${API_URL}/api/lovestory/${editingItem._id}`, data, {
+                await axios.put(`${API_URL}/lovestory/${editingItem._id}`, data, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'multipart/form-data'
@@ -115,7 +115,7 @@ export default function LoveStory({ API_URL, isAdmin }) {
                 });
                 toast.success("Cập nhật thành công!");
             } else {
-                await axios.post(`${API_URL}/api/lovestory`, data, {
+                await axios.post(`${API_URL}/lovestory`, data, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'multipart/form-data'
