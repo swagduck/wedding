@@ -2423,7 +2423,7 @@ function App() {
                         transition={{ delay: 0.2 }}
                         className="text-wedding-blue-400 font-medium"
                     >
-                        Made with <span className="text-red-400 animate-pulse heartbeat">❤️</span> for my Sister's Big Day
+                        Made with <span className="text-red-400 animate-pulse heartbeat">❤️</span> by Võ Trần Hoàng Uy
                     </motion.p>
 
                     <motion.p
