@@ -47,7 +47,7 @@ export default function LoveStory({ API_URL, isAdmin }) {
         if (!window.confirm("Bạn có chắc chắn muốn xóa mốc thời gian này?")) return;
 
         try {
-            const token = localStorage.getItem('wedding_admin_token');
+            const token = localStorage.getItem('adminToken');
             await axios.delete(`${API_URL}/lovestory/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -90,7 +90,7 @@ export default function LoveStory({ API_URL, isAdmin }) {
         setIsSubmitting(true);
 
         try {
-            const token = localStorage.getItem('wedding_admin_token');
+            const token = localStorage.getItem('adminToken');
             const data = new FormData();
             data.append('title', formData.title);
             data.append('date', formData.date);
