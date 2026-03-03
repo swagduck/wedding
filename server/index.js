@@ -249,6 +249,58 @@ mongoose
     } else {
       console.log(`✅ Database có ${finalMediaCount} media items`);
     }
+
+    // Seed LoveStory timeline if empty
+    const loveStoryCount = await LoveStory.countDocuments();
+    if (loveStoryCount === 0) {
+      console.log("📖 Thêm dữ liệu Câu Chuyện Tình Yêu mẫu...");
+      const initialTimeline = [
+        {
+          title: "Lần Đầu Gặp Gỡ",
+          date: "15.08.2023",
+          description: "Ánh mắt ta chạm nhau giữa biển người mênh mông, và khoảnh khắc đó, thế giới như ngừng lại. Anh biết rằng, mình đã tìm thấy một nửa của đời mình.",
+          icon: "Camera",
+          image: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800&q=80",
+          order: 1
+        },
+        {
+          title: "Lời Yêu Đầu Tiên",
+          date: "20.10.2023",
+          description: "Dưới cơn mưa thu dịu dàng, tiếng yêu ngập ngừng được cất lên. Cái nắm tay thật chặt thay cho bao lời muốn nói.",
+          icon: "Heart",
+          image: "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=800&q=80",
+          order: 2
+        },
+        {
+          title: "Kỷ Niệm Khó Quên",
+          date: "14.02.2024",
+          description: "Valentine đầu tiên bên nhau với những món quà nhỏ xinh nhưng đong đầy tình cảm. Cùng nhau hứa hẹn về một tương lai xa hơn.",
+          icon: "Wine",
+          image: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=800&q=80",
+          order: 3
+        },
+        {
+          title: "Anh Đồng Ý Không?",
+          date: "24.12.2025",
+          description: "Trong không khí ấm áp của đêm Giáng sinh, chiếc nhẫn lấp lánh được trao tay. Nước mắt rơi, và câu 'Em đồng ý' được thốt lên.",
+          icon: "CalendarHeart",
+          image: "https://images.unsplash.com/photo-1549416878-b9ca95e1ccf7?w=800&q=80",
+          order: 4
+        },
+        {
+          title: "Ngày Hạnh Phúc Trọn Vẹn",
+          date: "May 2026",
+          description: "Ngày chúng ta chính thức gọi nhau bằng tiếng 'Vợ - Chồng'. Hành trình mới chỉ vừa bắt đầu, với trọn vẹn yêu thương.",
+          icon: "Sparkles",
+          image: "https://images.unsplash.com/photo-1519741497674-611821869e9a?w=800&q=80",
+          order: 5
+        }
+      ];
+      await LoveStory.insertMany(initialTimeline);
+      console.log("✅ Đã thêm 5 mốc thời gian mẫu");
+    } else {
+      console.log(`✅ Database có ${loveStoryCount} mốc thời gian LoveStory`);
+    }
   })
   .catch((err) => console.error("❌ Lỗi kết nối MongoDB:", err));
 
@@ -313,6 +365,19 @@ const guestbookSchema = new mongoose.Schema({
 });
 
 const Guestbook = mongoose.model("Guestbook", guestbookSchema);
+
+// LoveStory Schema
+const loveStorySchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  date: { type: String, required: true },
+  description: { type: String, required: true },
+  icon: { type: String, required: true, default: "Heart" },
+  image: { type: String, required: true },
+  order: { type: Number, required: true, default: 0 },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const LoveStory = mongoose.model("LoveStory", loveStorySchema);
 
 console.log('✅ Database models initialized');
 
@@ -977,6 +1042,165 @@ app.post("/api/slideshow/items", authenticateAdmin, async (req, res) => {
   } catch (error) {
     console.error('❌ Error adding to slideshow:', error);
     res.status(500).json({ message: "Lỗi khi thêm vào slideshow", error: error.message });
+  }
+});
+
+// ==========================================
+// LoveStory API Endpoints
+// ==========================================
+
+/**
+ * @route   GET /api/lovestory
+ * @desc    Get all love story milestones
+ */
+app.get("/api/lovestory", async (req, res) => {
+  try {
+    const milestones = await LoveStory.find().sort({ order: 1 }).lean();
+    res.status(200).json(milestones);
+  } catch (error) {
+    console.error('❌ Error fetching love story:', error);
+    res.status(500).json({ message: "Lỗi khi lấy câu chuyện tình yêu", error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/lovestory
+ * @desc    Create a new love story milestone with image upload (admin only)
+ */
+app.post("/api/lovestory", authenticateAdmin, (req, res, next) => {
+  return videoUpload.single("imageFile")(req, res, next);
+}, async (req, res) => {
+  try {
+    const { title, date, description, icon, order } = req.body;
+    let imageUrl = req.body.image; // fallback to text URL if provided
+    
+    if (!title || !date || !description) {
+      return res.status(400).json({ message: "Vui lòng điền đầy đủ thông tin bắt buộc." });
+    }
+
+    // Process file upload if provided
+    if (req.file) {
+      if (!req.file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ message: "File tải lên phải là hình ảnh." });
+      }
+      
+      const cloudinaryResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "wedding_album/lovestory",
+            resource_type: "image",
+            quality: "auto:good",
+            fetch_format: "auto",
+            secure: true
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
+      
+      imageUrl = cloudinaryResult.secure_url || cloudinaryResult.url;
+    }
+
+    if (!imageUrl) {
+      return res.status(400).json({ message: "Vui lòng cung cấp URL hình ảnh hoặc upload file." });
+    }
+
+    const newMilestone = new LoveStory({
+      title,
+      date,
+      description,
+      icon: icon || "Heart",
+      image: imageUrl,
+      order: order !== undefined ? parseInt(order) : 0
+    });
+
+    const savedMilestone = await newMilestone.save();
+    res.status(201).json(savedMilestone);
+  } catch (error) {
+    console.error('❌ Error creating love story milestone:', error);
+    res.status(500).json({ message: "Lỗi khi tạo mốc thời gian", error: error.message });
+  }
+});
+
+/**
+ * @route   PUT /api/lovestory/:id
+ * @desc    Update a love story milestone with optional image upload (admin only)
+ */
+app.put("/api/lovestory/:id", authenticateAdmin, (req, res, next) => {
+  return videoUpload.single("imageFile")(req, res, next);
+}, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, date, description, icon, order, image } = req.body;
+
+    const milestone = await LoveStory.findById(id);
+    if (!milestone) {
+      return res.status(404).json({ message: "Không tìm thấy mốc thời gian." });
+    }
+
+    let imageUrl = image;
+
+    // Process new file upload if provided
+    if (req.file) {
+      if (!req.file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ message: "File tải lên phải là hình ảnh." });
+      }
+      
+      const cloudinaryResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "wedding_album/lovestory",
+            resource_type: "image",
+            quality: "auto:good",
+            fetch_format: "auto",
+            secure: true
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
+      
+      imageUrl = cloudinaryResult.secure_url || cloudinaryResult.url;
+    }
+
+    if (title) milestone.title = title;
+    if (date) milestone.date = date;
+    if (description) milestone.description = description;
+    if (icon) milestone.icon = icon;
+    if (imageUrl) milestone.image = imageUrl;
+    if (order !== undefined) milestone.order = parseInt(order);
+
+    const updatedMilestone = await milestone.save();
+    res.status(200).json(updatedMilestone);
+  } catch (error) {
+    console.error('❌ Error updating love story milestone:', error);
+    res.status(500).json({ message: "Lỗi khi cập nhật mốc thời gian", error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /api/lovestory/:id
+ * @desc    Delete a love story milestone (admin only)
+ */
+app.delete("/api/lovestory/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const milestone = await LoveStory.findByIdAndDelete(id);
+    if (!milestone) {
+      return res.status(404).json({ message: "Không tìm thấy mốc thời gian." });
+    }
+
+    res.status(200).json({ message: "Xóa thành công", id });
+  } catch (error) {
+    console.error('❌ Error deleting love story milestone:', error);
+    res.status(500).json({ message: "Lỗi khi xóa mốc thời gian", error: error.message });
   }
 });
 

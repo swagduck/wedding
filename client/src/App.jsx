@@ -2368,7 +2368,7 @@ function App() {
             </main >
 
             {/* Love Story Section */}
-            <LoveStory />
+            <LoveStory API_URL={API_URL} isAdmin={isAdmin} />
 
             {/* Guestbook Section */}
             <Guestbook API_URL={API_URL} isAdmin={isAdmin} />
