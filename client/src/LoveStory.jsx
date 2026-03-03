@@ -24,6 +24,10 @@ export default function LoveStory({ API_URL, isAdmin }) {
         order: 0
     });
     const [imageFile, setImageFile] = useState(null);
+    const [imageSourceType, setImageSourceType] = useState('upload');
+    const [selectedGalleryImage, setSelectedGalleryImage] = useState('');
+    const [galleryImages, setGalleryImages] = useState([]);
+    const [loadingGallery, setLoadingGallery] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -59,6 +63,20 @@ export default function LoveStory({ API_URL, isAdmin }) {
         }
     };
 
+    const fetchGalleryForPicker = async () => {
+        if (galleryImages.length > 0) return;
+        try {
+            setLoadingGallery(true);
+            const response = await axios.get(`${API_URL}/media?limit=200&type=image`);
+            setGalleryImages(response.data.media);
+        } catch (error) {
+            console.error("Lỗi khi tải thư viện ảnh:", error);
+            toast.error("Không thể tải ảnh thư viện");
+        } finally {
+            setLoadingGallery(false);
+        }
+    };
+
     const openCreateModal = () => {
         setEditingItem(null);
         setFormData({
@@ -69,6 +87,8 @@ export default function LoveStory({ API_URL, isAdmin }) {
             order: milestones.length > 0 ? Math.max(...milestones.map(m => m.order)) + 1 : 1
         });
         setImageFile(null);
+        setSelectedGalleryImage('');
+        setImageSourceType('upload');
         setIsModalOpen(true);
     };
 
@@ -82,6 +102,8 @@ export default function LoveStory({ API_URL, isAdmin }) {
             order: item.order
         });
         setImageFile(null);
+        setSelectedGalleryImage('');
+        setImageSourceType('upload');
         setIsModalOpen(true);
     };
 
@@ -98,12 +120,23 @@ export default function LoveStory({ API_URL, isAdmin }) {
             data.append('icon', formData.icon);
             data.append('order', formData.order);
 
-            if (imageFile) {
-                data.append('imageFile', imageFile);
-            } else if (!editingItem) {
-                toast.error("Vui lòng chọn hình ảnh!");
-                setIsSubmitting(false);
-                return;
+            if (imageSourceType === 'upload') {
+                if (imageFile) {
+                    data.append('imageFile', imageFile);
+                } else if (!editingItem) {
+                    toast.error("Vui lòng tải lên hình ảnh!");
+                    setIsSubmitting(false);
+                    return;
+                }
+            } else {
+                if (!selectedGalleryImage && !editingItem) {
+                    toast.error("Vui lòng chọn một hình ảnh từ thư viện!");
+                    setIsSubmitting(false);
+                    return;
+                }
+                if (selectedGalleryImage) {
+                    data.append('image', selectedGalleryImage);
+                }
             }
 
             if (editingItem) {
@@ -211,6 +244,7 @@ export default function LoveStory({ API_URL, isAdmin }) {
                                                 <div className="absolute top-4 right-4 z-20 flex gap-2 p-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
                                                         className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
+                                                        onClick={() => openEditModal(milestone)}
                                                         title="Sửa"
                                                     >
                                                         <Edit2 size={16} />
@@ -355,15 +389,68 @@ export default function LoveStory({ API_URL, isAdmin }) {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                            Hình ảnh {editingItem ? '(Tải lên ảnh mới sẽ ghi đè ảnh cũ)' : '*'}
-                                        </label>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => setImageFile(e.target.files[0])}
-                                            className="w-full px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-wedding-blue-400 focus:border-transparent outline-none transition-all text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-wedding-blue-50 file:text-wedding-blue-700 hover:file:bg-wedding-blue-100 dark:file:bg-slate-600 dark:file:text-slate-200 dark:text-white bg-white dark:bg-slate-700"
-                                        />
+                                        <div className="flex gap-4 mb-2">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="imageSourceType"
+                                                    checked={imageSourceType === 'upload'}
+                                                    onChange={() => setImageSourceType('upload')}
+                                                    className="text-wedding-blue-500 focus:ring-wedding-blue-400"
+                                                />
+                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tải ảnh lên</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="imageSourceType"
+                                                    checked={imageSourceType === 'gallery'}
+                                                    onChange={() => {
+                                                        setImageSourceType('gallery');
+                                                        fetchGalleryForPicker();
+                                                    }}
+                                                    className="text-wedding-blue-500 focus:ring-wedding-blue-400"
+                                                />
+                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Chọn ảnh có sẵn</span>
+                                            </label>
+                                        </div>
+
+                                        {imageSourceType === 'upload' ? (
+                                            <div className="mt-2">
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                                    File hình ảnh {editingItem ? '(Tải lên ảnh mới sẽ ghi đè ảnh cũ)' : '*'}
+                                                </label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => setImageFile(e.target.files[0])}
+                                                    className="w-full px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-wedding-blue-400 focus:border-transparent outline-none transition-all text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-wedding-blue-50 file:text-wedding-blue-700 hover:file:bg-wedding-blue-100 dark:file:bg-slate-600 dark:file:text-slate-200 dark:text-white bg-white dark:bg-slate-700"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="mt-2">
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                                    Chọn ảnh từ thư viện
+                                                </label>
+                                                {loadingGallery ? (
+                                                    <div className="flex justify-center p-4">
+                                                        <Loader2 className="animate-spin text-wedding-blue-400" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                                        {galleryImages.map(img => (
+                                                            <div
+                                                                key={img._id}
+                                                                onClick={() => setSelectedGalleryImage(img.url)}
+                                                                className={`relative aspect-square cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${selectedGalleryImage === img.url || (!selectedGalleryImage && editingItem?.image === img.url) ? 'border-wedding-blue-500 scale-95 shadow-lg' : 'border-transparent hover:border-wedding-blue-300'}`}
+                                                            >
+                                                                <img src={img.thumbUrl || img.url} alt="Gallery item" className="w-full h-full object-cover" />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </form>
                             </div>
