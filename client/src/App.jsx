@@ -2186,7 +2186,7 @@ function App() {
                         1280: 4,
                         1024: 3,
                         768: 2,
-                        500: 1
+                        500: 2
                     }}
                     className="flex w-auto -ml-4 sm:-ml-6 lg:-ml-8"
                     columnClassName="pl-4 sm:pl-6 lg:pl-8 bg-clip-padding"
