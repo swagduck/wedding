@@ -317,6 +317,13 @@ const categorySchema = new mongoose.Schema({
 
 const Category = mongoose.model("Category", categorySchema);
 
+// Comment Schema
+const commentSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  content: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
 // Media Schema (ảnh/video)
 const mediaSchema = new mongoose.Schema({
   url: { type: String, required: true },
@@ -333,6 +340,7 @@ const mediaSchema = new mongoose.Schema({
     default: 'ảnh check-in'
   },
   likes: { type: Number, default: 0 },
+  comments: { type: [commentSchema], default: [] },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -582,6 +590,60 @@ app.get("/api/media", async (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching media:', error);
     res.status(500).json({ message: "Lỗi khi lấy danh sách media", error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/media/:id/comment
+ * @desc    Thêm bình luận vào media
+ */
+app.post("/api/media/:id/comment", async (req, res) => {
+  try {
+    const { name, content } = req.body;
+    if (!name || !content) {
+      return res.status(400).json({ message: "Vui lòng nhập tên và nội dung!" });
+    }
+    const media = await Media.findById(req.params.id);
+    if (!media) {
+      return res.status(404).json({ message: "Không tìm thấy media!" });
+    }
+    
+    media.comments.push({ name, content });
+    await media.save();
+    
+    // Clear media caches
+    const keys = cache.keys();
+    keys.forEach(k => { if(k.startsWith('media_')) cache.del(k) });
+    
+    res.json(media);
+  } catch (error) {
+    console.error("Lỗi thêm bình luận:", error);
+    res.status(500).json({ message: "Lỗi thêm bình luận", error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /api/media/:id/comment/:commentId
+ * @desc    Xóa bình luận khỏi media (Chỉ admin)
+ */
+app.delete("/api/media/:id/comment/:commentId", authenticateAdmin, async (req, res) => {
+  try {
+    const media = await Media.findById(req.params.id);
+    if (!media) {
+      return res.status(404).json({ message: "Không tìm thấy media!" });
+    }
+    
+    media.comments.pull(req.params.commentId);
+    await media.save();
+    
+    // Clear media caches
+    const keys = cache.keys();
+    keys.forEach(k => { if(k.startsWith('media_')) cache.del(k) });
+    
+    res.json(media);
+  } catch (error) {
+    console.error("Lỗi xóa bình luận:", error);
+    res.status(500).json({ message: "Lỗi xóa bình luận", error: error.message });
   }
 });
 
