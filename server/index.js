@@ -29,7 +29,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Trust proxy for reverse proxy deployments (Render, Heroku, etc.)
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 // 2. Middleware
 app.use(compression()); // Compress responses
@@ -98,12 +98,16 @@ app.use((req, res, next) => {
   if (req.path.includes('/upload')) {
     res.setTimeout(120000, () => { // 2 minutes for uploads
       console.log('Upload request timeout');
-      res.status(408).send('Upload timeout - file quá lớn hoặc mất quá nhiều thời gian để xử lý');
+      if (!res.headersSent) {
+        res.status(408).send('Upload timeout - file quá lớn hoặc mất quá nhiều thời gian để xử lý');
+      }
     });
   } else {
-    res.setTimeout(10000, () => { // 10 seconds for other requests
-      console.log('Request timeout');
-      res.status(408).send('Request timeout');
+    res.setTimeout(30000, () => { // 30 seconds for other requests to prevent race with 10s mongoose timeout
+      console.log('Request timeout (30s)');
+      if (!res.headersSent) {
+        res.status(408).send('Request timeout');
+      }
     });
   }
   next();
