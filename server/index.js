@@ -603,13 +603,15 @@ app.post("/api/media/:id/comment", async (req, res) => {
     if (!name || !content) {
       return res.status(400).json({ message: "Vui lòng nhập tên và nội dung!" });
     }
-    const media = await Media.findById(req.params.id);
+    const media = await Media.findByIdAndUpdate(
+      req.params.id,
+      { $push: { comments: { name, content } } },
+      { new: true }
+    );
+    
     if (!media) {
       return res.status(404).json({ message: "Không tìm thấy media!" });
     }
-    
-    media.comments.push({ name, content });
-    await media.save();
     
     // Clear media caches
     const keys = cache.keys();
