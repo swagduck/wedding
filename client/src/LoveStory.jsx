@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { Heart, CalendarHeart, Wine, Camera, Sparkles, Loader2, Edit2, Trash2, Plus } from 'lucide-react';
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import toast from 'react-hot-toast';
 
 const IconMap = {
     Camera, Heart, Wine, CalendarHeart, Sparkles

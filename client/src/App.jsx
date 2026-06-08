@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 import './slideshow-animations.css';
-import Masonry from 'react-masonry-css';
+
 import Guestbook from './Guestbook';
 import LoveStory from './LoveStory';
 
@@ -77,12 +77,18 @@ function App() {
     const [newCategoryForPhoto, setNewCategoryForPhoto] = useState('');
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(null);
     const [pagination, setPagination] = useState(null);
-    const [hasMore, setHasMore] = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [bgAudioList, setBgAudioList] = useState([]);
     const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
     const [audioUploading, setAudioUploading] = useState(false);
+    
+    // Welcome Letter
+    const [showWelcomeLetter, setShowWelcomeLetter] = useState(false);
+    
+    // Comments
+    const [commentName, setCommentName] = useState('');
+    const [commentContent, setCommentContent] = useState('');
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
     // Slideshow
     const [slideshowItems, setSlideshowItems] = useState([]);
@@ -109,6 +115,41 @@ function App() {
         }
         localStorage.setItem('weddingDarkMode', isDarkMode);
     }, [isDarkMode]);
+
+    // Lock body scroll when modals are open to prevent background scrolling and jumping
+    useEffect(() => {
+        if (zoomedImage || showSlideshowFullscreen || showWelcomeLetter) {
+            // Store current scroll position to prevent iOS jumping
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [zoomedImage, showSlideshowFullscreen, showWelcomeLetter]);
+
+    // Welcome Letter Effect
+    useEffect(() => {
+        const hasSeen = localStorage.getItem('weddingWelcomeLetter');
+        if (!hasSeen && !isAdmin) {
+            const timer = setTimeout(() => {
+                setShowWelcomeLetter(true);
+            }, 1000); // Show after 1 second
+            return () => clearTimeout(timer);
+        }
+    }, [isAdmin]);
+
+    const closeWelcomeLetter = () => {
+        setShowWelcomeLetter(false);
+        localStorage.setItem('weddingWelcomeLetter', 'true');
+        // Auto-play music if possible
+        const audioEl = document.querySelector('audio');
+        if (audioEl) {
+            audioEl.play().catch(e => console.log('Autoplay prevented', e));
+        }
+    };
 
     const floatingDecor = React.useMemo(() => {
         const hearts = [...Array(12)].map((_, i) => ({
@@ -204,16 +245,6 @@ function App() {
         }
     };
 
-    const loadMore = useCallback(() => {
-        if (!hasMore || loadingMore) return;
-
-        setLoadingMore(true);
-        const nextPage = (pagination?.currentPage || 1) + 1;
-        fetchMedia(nextPage, true).finally(() => {
-            setLoadingMore(false);
-        });
-    }, [hasMore, loadingMore, pagination]);
-
     // Register service worker
     useEffect(() => {
         if ('serviceWorker' in navigator) {
@@ -222,27 +253,6 @@ function App() {
                 .catch(error => console.log('SW registration failed'));
         }
     }, []);
-
-    // Infinite scroll observer
-    useEffect(() => {
-        if (!hasMore || loadingMore) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    loadMore();
-                }
-            },
-            { threshold: 0.1 }
-        );
-
-        const trigger = document.getElementById('load-more-trigger');
-        if (trigger) {
-            observer.observe(trigger);
-        }
-
-        return () => observer.disconnect();
-    }, [hasMore, loadingMore, loadMore]);
 
     // Detect mobile device
     useEffect(() => {
@@ -370,7 +380,7 @@ function App() {
         }
     }, [slideshowItems.length, slideshowIndex]);
 
-    const fetchMedia = async (page = 1, append = false) => {
+    const fetchMedia = async (page = 1) => {
         try {
             const params = new URLSearchParams();
             if (filterType !== 'tất cả') params.append('type', filterType);
@@ -380,14 +390,8 @@ function App() {
 
             const res = await axios.get(`${API_URL}/media?${params}`);
 
-            if (append) {
-                setMedia(prev => [...prev, ...res.data.media]);
-            } else {
-                setMedia(res.data.media);
-            }
-
+            setMedia(res.data.media);
             setPagination(res.data.pagination);
-            setHasMore(res.data.pagination?.hasNextPage || false);
         } catch (err) {
             toast.error("Không thể tải media!");
         }
@@ -813,6 +817,44 @@ function App() {
 
     const currentAudioUrl = bgAudioList.length > 0 ? bgAudioList[currentAudioIndex].url : '/audio.mp3';
 
+    const handleCommentSubmit = async (e, mediaId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!commentName.trim() || !commentContent.trim()) {
+            toast.error("Vui lòng nhập đầy đủ tên và lời bình luận!");
+            return;
+        }
+        setIsSubmittingComment(true);
+        try {
+            const res = await axios.post(`${API_URL}/media/${mediaId}/comment`, {
+                name: commentName,
+                content: commentContent
+            });
+            // Update media list
+            setMedia(prev => prev.map(m => m._id === mediaId ? res.data : m));
+            setCommentContent('');
+            toast.success("Đã gửi lời bình luận!");
+        } catch (error) {
+            toast.error("Lỗi khi gửi bình luận!");
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+
+    const handleDeleteComment = async (e, mediaId, commentId) => {
+        e.stopPropagation();
+        if(!window.confirm("Bạn có chắc chắn muốn xóa bình luận này?")) return;
+        try {
+            const res = await axios.delete(`${API_URL}/media/${mediaId}/comment/${commentId}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
+            });
+            setMedia(prev => prev.map(m => m._id === mediaId ? res.data : m));
+            toast.success("Đã xóa bình luận!");
+        } catch(error) {
+            toast.error("Lỗi xóa bình luận");
+        }
+    };
+
     return (
         <div className="min-h-screen relative overflow-hidden">
             {/* Enhanced Floating Background - Disabled on Mobile */}
@@ -967,6 +1009,64 @@ function App() {
                 <div className="absolute bottom-[-10%] right-[-5%] w-96 h-96 bg-wedding-blue-400/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl" />
             </header>
+
+            {/* Welcome Letter Modal */}
+            <AnimatePresence>
+                {showWelcomeLetter && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[2000] p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 50 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 50 }}
+                            transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+                            className="wedding-card rounded-3xl p-8 sm:p-12 max-w-lg w-full border border-wedding-gold-200/50 relative overflow-hidden bg-white/95 dark:bg-slate-900/95 shadow-2xl"
+                        >
+                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-wedding-gold-300 via-wedding-gold-500 to-wedding-gold-300" />
+                            
+                            <div className="text-center relative z-10">
+                                <div className="inline-flex items-center justify-center w-20 h-20 bg-wedding-gold-50 dark:bg-slate-800 rounded-full mb-6 relative">
+                                    <div className="absolute inset-0 border-2 border-wedding-gold-200 rounded-full animate-[spin_10s_linear_infinite]" />
+                                    <Flower size={36} className="text-wedding-gold-500" />
+                                </div>
+                                
+                                <h3 className="text-3xl sm:text-4xl font-playfair font-bold text-wedding-blue-900 dark:text-wedding-blue-50 mb-4 tracking-tight drop-shadow-sm">
+                                    <span className="gold-accent">Thư Cảm Ơn</span>
+                                </h3>
+                                
+                                <div className="space-y-4 mb-8">
+                                    <p className="text-base sm:text-lg text-wedding-blue-800 dark:text-wedding-blue-200 leading-relaxed font-playfair italic">
+                                        Gửi những người thương yêu của chúng mình,
+                                    </p>
+                                    <p className="text-sm sm:text-base text-wedding-blue-700/80 dark:text-wedding-blue-200/80 leading-relaxed">
+                                        Cảm tạ mọi người đã bớt chút thời gian quý báu đến chung vui trong ngày trọng đại của Nhật Huy và Thiên Ý. 
+                                        Sự hiện diện của mọi người là món quà tuyệt vời nhất đánh dấu khởi đầu cho chặng đường mới của chúng mình.
+                                    </p>
+                                    <p className="text-sm sm:text-base text-wedding-blue-700/80 dark:text-wedding-blue-200/80 leading-relaxed">
+                                        Đây là thư viện ảnh lưu lại những khoảnh khắc đáng nhớ nhất. Xin hãy cùng nhìn lại và lưu giữ những kỷ niệm đẹp đẽ này nhé!
+                                    </p>
+                                </div>
+
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={closeWelcomeLetter}
+                                    className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-wedding-gold-400 to-wedding-gold-600 text-white rounded-full font-bold shadow-lg hover:shadow-[0_0_20px_rgba(250,204,21,0.4)] transition-all duration-300"
+                                >
+                                    <Heart size={18} fill="currentColor" className="animate-pulse" />
+                                    Mở thư viện ảnh
+                                </motion.button>
+                            </div>
+
+                            <div className="absolute -top-4 -left-4 text-wedding-gold-300/30">
+                                <Sparkles size={64} className="animate-pulse-slow" />
+                            </div>
+                            <div className="absolute -bottom-4 -right-4 text-wedding-gold-300/30">
+                                <Sparkles size={64} className="animate-pulse-slow" />
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Admin Login Modal */}
             {
@@ -1674,33 +1774,33 @@ function App() {
             {
                 zoomedImage && (
                     <div
-                        className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                        className="fixed inset-0 bg-black/100 md:bg-black/90 md:backdrop-blur-sm md:flex md:items-center md:justify-center z-[5000] p-0 md:p-6 overflow-y-auto md:overflow-hidden"
                         onClick={() => setZoomedImage(null)}
                     >
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
+                            initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
                             transition={{ duration: 0.3 }}
-                            className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center"
+                            className="relative max-w-[1400px] w-full md:h-full flex flex-col md:flex-row bg-transparent md:bg-black md:rounded-2xl shadow-2xl mx-auto md:max-h-[90vh] md:overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            {/* Close Button */}
+                            {/* Close Button - Desktop (Inside Image Area) & Mobile (Fixed top right) */}
                             <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
                                 onClick={() => setZoomedImage(null)}
-                                className="absolute top-4 right-4 z-10 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                                className="fixed md:absolute top-4 right-4 md:right-[370px] z-[5010] w-10 h-10 md:w-12 md:h-12 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/70 transition-colors shadow-lg"
                             >
-                                <X size={24} className="text-white" />
+                                <X size={20} className="text-white md:w-6 md:h-6" />
                             </motion.button>
 
-                            {/* Media Container */}
-                            <div className="relative w-full h-full flex items-center justify-center">
+                            {/* Left/Top: Media Container */}
+                            <div className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0">
                                 {zoomedImage.type === 'video' ? (
                                     <video
                                         src={zoomedImage.url}
-                                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                        className="max-w-full max-h-full object-contain"
                                         controls
                                         autoPlay
                                     />
@@ -1708,69 +1808,141 @@ function App() {
                                     <img
                                         src={zoomedImage.url}
                                         alt="Wedding moment zoomed"
-                                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                        className="max-w-full max-h-full object-contain"
                                     />
                                 )}
+                                
+                                {/* Mobile Swipe Up Hint */}
+                                <div className="absolute bottom-8 md:hidden flex flex-col items-center pointer-events-none opacity-60">
+                                    <div className="w-1 h-6 rounded-full bg-gradient-to-b from-white/20 to-white/90 animate-bounce mb-1"></div>
+                                    <span className="text-[10px] text-white tracking-widest uppercase font-bold drop-shadow-md">Kéo xuống Bình Luận</span>
+                                </div>
+                            </div>
 
-                                {/* Media Info Overlay */}
-                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-4 text-white" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <p className="text-sm opacity-90">Danh mục: {zoomedImage.category}</p>
-                                                {zoomedImage.type === 'video' && (
-                                                    <span className="bg-wedding-gold-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                                                        <Video size={10} />
-                                                        <span>Video</span>
-                                                    </span>
-                                                )}
+                            {/* Right/Bottom: Comments & Info Panel (Width 350px on Desktop) */}
+                            <div className="w-full md:w-[350px] bg-white dark:bg-slate-900 flex flex-col h-[85vh] md:h-full shrink-0 border-t md:border-l border-gray-200 dark:border-slate-800 relative z-[5005] rounded-t-3xl md:rounded-none -mt-6 md:mt-0 shadow-[0_-10px_40px_rgba(0,0,0,0.3)] md:shadow-none">
+                                {/* Header: Category & Date */}
+                                <div className="p-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-wedding-gold-300 to-wedding-gold-500 p-[2px]">
+                                            <div className="w-full h-full bg-white dark:bg-slate-900 rounded-full flex items-center justify-center">
+                                                <Heart size={16} className="text-wedding-gold-500 fill-current" />
                                             </div>
-                                            <p className="text-xs opacity-75">
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-wedding-blue-900 dark:text-wedding-blue-50">
+                                                {zoomedImage.category}
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
                                                 {new Date(zoomedImage.createdAt).toLocaleDateString('vi-VN', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    year: 'numeric'
+                                                    day: '2-digit', month: '2-digit', year: 'numeric'
                                                 })}
                                             </p>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <motion.button
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleLike(zoomedImage._id);
-                                                }}
-                                                disabled={likingPhotoId === zoomedImage._id}
-                                                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${likingPhotoId === zoomedImage._id
-                                                    ? 'bg-gray-500 cursor-not-allowed'
-                                                    : 'bg-white/20 backdrop-blur-md hover:bg-red-500 hover:text-white'
-                                                    }`}
-                                            >
-                                                {likingPhotoId === zoomedImage._id ? (
-                                                    <Loader2 size={16} className="animate-spin" />
-                                                ) : (
-                                                    <Heart
-                                                        size={16}
-                                                        className={(mediaById.get(zoomedImage._id)?.likes || 0) > 0 ? "text-red-400 fill-current" : ""}
-                                                    />
-                                                )}
-                                                <span className="font-bold">{mediaById.get(zoomedImage._id)?.likes || 0}</span>
-                                            </motion.button>
-
-                                            <motion.button
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    downloadPhoto(zoomedImage.url, zoomedImage._id, zoomedImage.category);
-                                                }}
-                                                className="flex items-center gap-2 bg-wedding-gold-500/80 backdrop-blur-md px-4 py-2 rounded-full text-white hover:bg-wedding-gold-600 transition-all duration-300"
-                                            >
-                                                <Download size={16} />
-                                            </motion.button>
-                                        </div>
                                     </div>
+                                </div>
+
+                                {/* Comments List */}
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-700 bg-white dark:bg-slate-900">
+                                    {(!mediaById.get(zoomedImage._id)?.comments || mediaById.get(zoomedImage._id).comments.length === 0) ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 space-y-2">
+                                            <Camera size={32} className="opacity-20" />
+                                            <p className="text-sm">Chưa có bình luận nào</p>
+                                            <p className="text-xs">Hãy là người đầu tiên để lại lời chúc!</p>
+                                        </div>
+                                    ) : (
+                                        mediaById.get(zoomedImage._id).comments.map((comment, idx) => (
+                                            <div key={idx} className="flex gap-3 relative group">
+                                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center shrink-0 uppercase font-bold text-gray-600 dark:text-gray-300 text-xs">
+                                                    {comment.name.charAt(0)}
+                                                </div>
+                                                <div className="flex-1 min-w-0 pr-6">
+                                                    <p className="text-sm">
+                                                        <span className="font-bold text-gray-900 dark:text-white mr-2">{comment.name}</span>
+                                                        <span className="text-gray-700 dark:text-gray-300 break-words">{comment.content}</span>
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-400 mt-1 uppercase">
+                                                        {new Date(comment.createdAt).toLocaleDateString('vi-VN')}
+                                                    </p>
+                                                </div>
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={(e) => handleDeleteComment(e, zoomedImage._id, comment._id)}
+                                                        className="absolute right-0 top-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-900 px-1"
+                                                        title="Xóa bình luận"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Action Buttons (Like / Download) */}
+                                <div className="p-3 border-t border-gray-100 dark:border-slate-800 flex items-center gap-4 shrink-0 bg-white dark:bg-slate-900">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleLike(zoomedImage._id);
+                                        }}
+                                        disabled={likingPhotoId === zoomedImage._id}
+                                        className="flex items-center transition-transform hover:scale-110 active:scale-90"
+                                    >
+                                        <motion.div
+                                            animate={(mediaById.get(zoomedImage._id)?.likes || 0) > 0 ? { scale: [1, 1.3, 1], transition: { duration: 0.4, type: "spring", stiffness: 400, damping: 10 } } : {}}
+                                            key={(mediaById.get(zoomedImage._id)?.likes || 0)}
+                                        >
+                                            <Heart
+                                                size={28}
+                                                className={(mediaById.get(zoomedImage._id)?.likes || 0) > 0 ? "text-red-500 fill-current drop-shadow-md" : "text-gray-800 dark:text-gray-300"}
+                                            />
+                                        </motion.div>
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            downloadPhoto(zoomedImage.url, zoomedImage._id, zoomedImage.category);
+                                        }}
+                                        className="hover:opacity-70 transition-opacity text-gray-800 dark:text-gray-300"
+                                    >
+                                        <Download size={26} />
+                                    </button>
+                                    <div className="ml-auto text-sm font-semibold text-gray-900 dark:text-white">
+                                        {(mediaById.get(zoomedImage._id)?.likes || 0)} lượt thích
+                                    </div>
+                                </div>
+
+                                {/* Comment Form */}
+                                <div className="p-3 border-t border-gray-100 dark:border-slate-800 shrink-0 bg-gray-50 dark:bg-slate-800/80">
+                                    <form onSubmit={(e) => handleCommentSubmit(e, zoomedImage._id)} className="flex flex-col gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Tên của bạn..."
+                                            value={commentName}
+                                            onChange={(e) => setCommentName(e.target.value)}
+                                            className="w-full text-sm bg-transparent border-none focus:ring-0 p-1 text-gray-900 dark:text-white placeholder-gray-500 font-semibold outline-none"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Thêm bình luận..."
+                                                value={commentContent}
+                                                onChange={(e) => setCommentContent(e.target.value)}
+                                                className="flex-1 text-sm bg-transparent border-none focus:ring-0 p-1 text-gray-900 dark:text-white placeholder-gray-500 outline-none"
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmittingComment || !commentName.trim() || !commentContent.trim()}
+                                                className="text-wedding-blue-600 dark:text-wedding-blue-400 font-bold text-sm disabled:opacity-50 px-2 py-1"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {isSubmittingComment ? <Loader2 size={16} className="animate-spin" /> : "Đăng"}
+                                            </button>
+                                        </div>
+                                    </form>
                                 </div>
                             </div>
                         </motion.div>
@@ -1843,19 +2015,30 @@ function App() {
 
             {/* Fullscreen Slideshow Modal */}
             {showSlideshowFullscreen && slideshowItems.length > 0 && (
-                <div className="slideshow-fullscreen">
+                <div className={`slideshow-fullscreen ${!showControls ? 'hide-cursor' : ''}`}>
                     {/* Blurred Background Layer */}
-                    <img
-                        key={`bg-${slideshowItems[slideshowIndex]?._id}`}
-                        src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
-                        className="slideshow-fullscreen-bg"
-                        alt="Background blur"
-                    />
+                    <AnimatePresence mode="wait">
+                        <motion.img
+                            key={`bg-${slideshowItems[slideshowIndex]?._id}`}
+                            src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
+                            className="slideshow-fullscreen-bg"
+                            alt="Background blur"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 1.5, ease: 'easeInOut' }}
+                        />
+                    </AnimatePresence>
 
                     {/* Close Button */}
                     <button
                         onClick={closeFullscreenSlideshow}
                         className="absolute top-4 right-4 sm:top-6 sm:right-6 z-[1010] p-3 rounded-full bg-black/40 text-white hover:bg-black/60 transition-all backdrop-blur-md shadow-lg"
+                        style={{
+                            opacity: showControls ? 1 : 0,
+                            pointerEvents: showControls ? 'auto' : 'none',
+                            transition: 'opacity 0.3s ease-in-out'
+                        }}
                         aria-label="Đóng slideshow"
                     >
                         <X size={24} />
@@ -1871,12 +2054,12 @@ function App() {
                                 src={slideshowItems[slideshowIndex]?.slideshowUrl || slideshowItems[slideshowIndex]?.url}
                                 alt={`Slideshow ${slideshowIndex + 1}`}
                                 className="slideshow-fullscreen-image max-w-90vw max-h-90vh object-contain"
-                                initial={{ opacity: 0, scale: 0.8, y: 50 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 1.1, y: -50 }}
+                                initial={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
+                                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                                exit={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
                                 transition={{
-                                    duration: 1,
-                                    ease: [0.25, 0.46, 0.45, 0.94]
+                                    duration: 1.2,
+                                    ease: [0.33, 1, 0.68, 1]
                                 }}
                             />
                         </AnimatePresence>
@@ -2000,16 +2183,16 @@ function App() {
                                         alt={`Slideshow ${slideshowIndex + 1}`}
                                         className="slideshow-image w-full h-full object-cover"
                                         variants={{
-                                            enter: { opacity: 0, scale: 1.1, x: 100 },
-                                            center: { opacity: 1, scale: 1, x: 0 },
-                                            exit: { opacity: 0, scale: 0.9, x: -100 }
+                                            enter: { opacity: 0, scale: 1.05, filter: 'blur(10px)' },
+                                            center: { opacity: 1, scale: 1, filter: 'blur(0px)' },
+                                            exit: { opacity: 0, scale: 0.95, filter: 'blur(10px)' }
                                         }}
                                         initial="enter"
                                         animate="center"
                                         exit="exit"
                                         transition={{
-                                            duration: 0.8,
-                                            ease: [0.25, 0.46, 0.45, 0.94]
+                                            duration: 1.2,
+                                            ease: [0.33, 1, 0.68, 1]
                                         }}
                                     />
                                 </AnimatePresence>
@@ -2090,6 +2273,7 @@ function App() {
 
                 {/* Type and Category Filter */}
                 <motion.div
+                    id="gallery-section"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
@@ -2180,17 +2364,7 @@ function App() {
                     </div>
                 </motion.div>
 
-                <Masonry
-                    breakpointCols={{
-                        default: 4,
-                        1280: 4,
-                        1024: 3,
-                        768: 2,
-                        500: 2
-                    }}
-                    className="flex w-auto -ml-4 sm:-ml-6 lg:-ml-8"
-                    columnClassName="pl-4 sm:pl-6 lg:pl-8 bg-clip-padding"
-                >
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 w-full max-w-7xl mx-auto">
                     {media.map((item, index) => (
                         <motion.div
                             key={item._id}
@@ -2276,24 +2450,31 @@ function App() {
                                 {/* Enhanced Actions */}
                                 <div className="flex justify-between items-center gap-2">
                                     <motion.button
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleLike(item._id);
                                         }}
                                         disabled={likingPhotoId === item._id}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 shadow-md hover:shadow-lg ${likingPhotoId === item._id
-                                            ? 'bg-gray-200 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-pink-50 to-red-50 hover:from-pink-100 hover:to-red-100 text-pink-600 hover:text-red-600 border border-pink-200/50'
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border shadow-sm ${likingPhotoId === item._id
+                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                            : item.likes > 0
+                                                ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 shadow-[0_2px_8px_rgba(239,68,68,0.2)]'
+                                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-red-500'
                                             }`}
                                     >
                                         {likingPhotoId === item._id ? (
-                                            <Loader2 size={14} className="animate-spin" />
+                                            <Loader2 size={16} className="animate-spin" />
                                         ) : (
-                                            <Heart size={14} className={item.likes > 0 ? "text-red-500 fill-current animate-pulse" : ""} />
+                                            <motion.div
+                                                animate={item.likes > 0 ? { scale: [1, 1.3, 1], transition: { duration: 0.4, type: "spring", stiffness: 400, damping: 10 } } : {}}
+                                                key={item.likes}
+                                            >
+                                                <Heart size={16} className={item.likes > 0 ? "text-red-500 fill-current drop-shadow-sm" : ""} />
+                                            </motion.div>
                                         )}
-                                        <span className="text-xs font-bold">{item.likes}</span>
+                                        <span className="text-sm font-bold">{item.likes > 0 ? item.likes : 'Thích'}</span>
                                     </motion.button>
 
                                     {isAdmin && (
@@ -2328,7 +2509,7 @@ function App() {
                             </div>
                         </motion.div>
                     ))}
-                </Masonry>
+                </div>
 
                 {
                     media.length === 0 && !loading && (
@@ -2353,15 +2534,40 @@ function App() {
                     )
                 }
 
-                {/* Infinite Scroll Trigger */}
-                {hasMore && (
-                    <div id="load-more-trigger" className="flex justify-center items-center py-8">
-                        {loadingMore && (
-                            <div className="flex items-center gap-2 text-wedding-blue-600">
-                                <Loader2 className="animate-spin" size={20} />
-                                <span>Đang tải thêm...</span>
-                            </div>
-                        )}
+                {/* Pagination Controls */}
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-4 py-12">
+                        <button
+                            onClick={() => {
+                                if (pagination.hasPrevPage) {
+                                    fetchMedia(pagination.currentPage - 1);
+                                    document.getElementById('gallery-section')?.scrollIntoView({ behavior: 'smooth' });
+                                }
+                            }}
+                            disabled={!pagination.hasPrevPage}
+                            className={`px-6 py-2.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-2 ${pagination.hasPrevPage ? 'bg-white text-wedding-blue-700 hover:bg-wedding-blue-50 hover:shadow-md border border-wedding-blue-200 dark:bg-slate-800 dark:text-wedding-blue-200 dark:border-slate-700 dark:hover:bg-slate-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-800/50 dark:border-slate-800/50 dark:text-slate-500'}`}
+                        >
+                            <ChevronLeft size={18} />
+                            <span>Trang trước</span>
+                        </button>
+                        
+                        <span className="text-wedding-blue-800 dark:text-wedding-blue-200 font-bold px-4 py-2 bg-white/50 dark:bg-slate-800/50 rounded-full border border-wedding-blue-100 dark:border-slate-700 shadow-sm">
+                            {pagination.currentPage} / {pagination.totalPages}
+                        </span>
+                        
+                        <button
+                            onClick={() => {
+                                if (pagination.hasNextPage) {
+                                    fetchMedia(pagination.currentPage + 1);
+                                    document.getElementById('gallery-section')?.scrollIntoView({ behavior: 'smooth' });
+                                }
+                            }}
+                            disabled={!pagination.hasNextPage}
+                            className={`px-6 py-2.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-2 ${pagination.hasNextPage ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white hover:shadow-md' : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-800/50 dark:border-slate-800/50 dark:text-slate-500'}`}
+                        >
+                            <span>Trang sau</span>
+                            <ChevronRight size={18} />
+                        </button>
                     </div>
                 )}
 

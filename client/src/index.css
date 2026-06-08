@@ -11,6 +11,12 @@
     }
 }
 
+@layer utilities {
+    .hide-cursor, .hide-cursor * {
+        cursor: none !important;
+    }
+}
+
 @layer components {
 
     /* tailwindcss @apply */
