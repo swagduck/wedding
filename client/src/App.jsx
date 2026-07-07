@@ -1390,9 +1390,9 @@ function App() {
                             </div>
 
                             {/* Category Selection with Dynamic Categories */}
-                            <div className="mb-8">
-                                <div className="flex justify-between items-center mb-4">
-                                    <label className="block text-wedding-blue-800 font-semibold text-lg">
+                            <div className="mb-8 flex flex-col items-center">
+                                <div className="flex flex-wrap items-center justify-center gap-4 mb-4">
+                                    <label className="text-wedding-blue-800 font-semibold text-lg">
                                         Chọn danh mục media:
                                     </label>
                                     {isAdmin && (
@@ -1400,7 +1400,7 @@ function App() {
                                             whileHover={{ scale: 1.05 }}
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => setShowAddCategory(true)}
-                                            className="flex items-center gap-2 bg-wedding-gold-500 text-white px-3 py-1 rounded-full text-sm hover:bg-wedding-gold-600 transition-all"
+                                            className="flex items-center gap-2 bg-wedding-gold-500 text-white px-3 py-1.5 rounded-full text-sm hover:bg-wedding-gold-600 transition-all shadow-sm"
                                         >
                                             <Plus size={14} />
                                             <span>Thêm danh mục</span>
@@ -1408,80 +1408,87 @@ function App() {
                                     )}
                                 </div>
                                 <div className="flex justify-center gap-3 flex-wrap">
-                                    {categories.map((category) => (
-                                        <div key={category} className="flex items-center gap-2">
-                                            <motion.button
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                                onClick={() => setSelectedCategory(category)}
-                                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${selectedCategory === category
-                                                    ? 'wedding-gradient text-white shadow-wedding-lg'
-                                                    : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
-                                                    }`}
-                                            >
-                                                {category}
-                                            </motion.button>
-                                            {isAdmin && category !== 'ảnh check-in' && category !== 'ảnh từng bàn' && category !== 'Videos' && (
-                                                <div className="relative category-dropdown">
-                                                    <button
-                                                        onClick={() => setShowCategoryDropdown(showCategoryDropdown === category ? null : category)}
-                                                        className="text-wedding-blue-400 hover:text-wedding-blue-600 ml-2 transition-colors"
-                                                        title="Tùy chọn"
+                                    {categories.map((category) => {
+                                        const isSelected = selectedCategory === category;
+                                        const canDelete = isAdmin && category !== 'ảnh check-in' && category !== 'ảnh từng bàn' && category !== 'Videos';
+                                        
+                                        return (
+                                            <div key={category} className="relative inline-block category-dropdown">
+                                                <div
+                                                    className={`flex items-center rounded-full transition-all duration-300 ${isSelected
+                                                        ? 'wedding-gradient text-white shadow-wedding-lg'
+                                                        : 'bg-wedding-blue-100 text-wedding-blue-700 hover:bg-wedding-blue-200 border-2 border-wedding-blue-200'
+                                                        }`}
+                                                >
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.02 }}
+                                                        whileTap={{ scale: 0.98 }}
+                                                        onClick={() => setSelectedCategory(category)}
+                                                        className={`px-4 py-2 font-semibold outline-none ${canDelete ? 'pr-2' : ''}`}
                                                     >
-                                                        <MoreVertical size={14} />
-                                                    </button>
-
-                                                    <AnimatePresence>
-                                                        {showCategoryDropdown === category && (
-                                                            <motion.div
-                                                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                                transition={{ duration: 0.15 }}
-                                                                className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-wedding-blue-200 py-1 z-50 min-w-[120px]"
-                                                            >
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setShowCategoryDropdown(null);
-                                                                        if (window.confirm(`Bạn có chắc chắn muốn xóa danh mục "${category}"?`)) {
-                                                                            axios.delete(`${API_URL}/categories/${encodeURIComponent(category)}`, {
-                                                                                headers: {
-                                                                                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-                                                                                }
-                                                                            })
-                                                                                .then(res => {
-                                                                                    setCategories(res.data);
-                                                                                    if (selectedCategory === category) {
-                                                                                        setSelectedCategory('ảnh check-in');
-                                                                                    }
-                                                                                    if (filterCategory === category) {
-                                                                                        setFilterCategory('tất cả');
-                                                                                    }
-                                                                                    toast.success('Đã xóa danh mục thành công!');
-                                                                                })
-                                                                                .catch(err => {
-                                                                                    if (err.response?.status === 400) {
-                                                                                        toast.error(err.response.data.message || 'Không thể xóa danh mục này!');
-                                                                                    } else {
-                                                                                        toast.error('Xóa danh mục thất bại! Bạn cần quyền admin.');
-                                                                                    }
-                                                                                });
-                                                                        }
-                                                                    }}
-                                                                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                                                                >
-                                                                    <Trash2 size={12} />
-                                                                    Xóa danh mục
-                                                                </button>
-                                                            </motion.div>
-                                                        )}
-                                                    </AnimatePresence>
+                                                        {category}
+                                                    </motion.button>
+                                                    {canDelete && (
+                                                        <button
+                                                            onClick={() => setShowCategoryDropdown(showCategoryDropdown === category ? null : category)}
+                                                            className={`pr-3 pl-1 outline-none transition-colors ${isSelected ? 'text-white hover:text-gray-200' : 'text-wedding-blue-500 hover:text-wedding-blue-800'}`}
+                                                            title="Tùy chọn"
+                                                        >
+                                                            <MoreVertical size={14} />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    ))}
+
+                                                <AnimatePresence>
+                                                    {showCategoryDropdown === category && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                            transition={{ duration: 0.15 }}
+                                                            className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-lg shadow-lg border border-wedding-blue-200 py-1 z-50 min-w-[140px]"
+                                                        >
+                                                            <button
+                                                                onClick={() => {
+                                                                    setShowCategoryDropdown(null);
+                                                                    if (window.confirm(`Bạn có chắc chắn muốn xóa danh mục "${category}"?`)) {
+                                                                        axios.delete(`${API_URL}/categories/${encodeURIComponent(category)}`, {
+                                                                            headers: {
+                                                                                'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                                                                            }
+                                                                        })
+                                                                            .then(res => {
+                                                                                setCategories(res.data);
+                                                                                if (selectedCategory === category) {
+                                                                                    setSelectedCategory('ảnh check-in');
+                                                                                }
+                                                                                if (filterCategory === category) {
+                                                                                    setFilterCategory('tất cả');
+                                                                                }
+                                                                                toast.success('Đã xóa danh mục thành công!');
+                                                                            })
+                                                                            .catch(err => {
+                                                                                if (err.response?.status === 400) {
+                                                                                    toast.error(err.response.data.message || 'Không thể xóa danh mục này!');
+                                                                                } else {
+                                                                                    toast.error('Xóa danh mục thất bại! Bạn cần quyền admin.');
+                                                                                }
+                                                                            });
+                                                                    }
+                                                                }}
+                                                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                                Xóa danh mục
+                                                            </button>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                                <p className="mt-3 text-sm text-wedding-blue-600">
+                                <p className="mt-4 text-sm text-wedding-blue-600">
                                     Đã chọn: <span className="font-semibold text-wedding-blue-800">{selectedCategory}</span>
                                 </p>
                             </div>
