@@ -81,7 +81,9 @@ function App() {
     const [bgAudioList, setBgAudioList] = useState([]);
     const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
     const [audioUploading, setAudioUploading] = useState(false);
-    
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+    const audioRef = React.useRef(null);
+
     // Welcome Letter
     const [showWelcomeLetter, setShowWelcomeLetter] = useState(false);
     
@@ -145,9 +147,10 @@ function App() {
         setShowWelcomeLetter(false);
         localStorage.setItem('weddingWelcomeLetter', 'true');
         // Auto-play music if possible
-        const audioEl = document.querySelector('audio');
-        if (audioEl) {
-            audioEl.play().catch(e => console.log('Autoplay prevented', e));
+        if (audioRef.current) {
+            audioRef.current.play().then(() => {
+                setIsPlayingAudio(true);
+            }).catch(e => console.log('Autoplay prevented', e));
         }
     };
 
@@ -1705,16 +1708,6 @@ function App() {
                             </div>
                         </div>
                         <div className="w-full sm:w-auto flex flex-col items-center gap-4">
-                            <audio
-                                controls
-                                autoPlay
-                                className="w-full sm:w-72"
-                                src={currentAudioUrl}
-                                onEnded={handleAudioEnded}
-                                title={bgAudioList[currentAudioIndex]?.name || "Wedding Audio"}
-                            >
-                                Trình duyệt của bạn không hỗ trợ thẻ audio.
-                            </audio>
                             <div className="flex flex-col gap-2 w-full max-h-40 overflow-y-auto pr-2">
                                 {bgAudioList.map((audioItem, idx) => (
                                     <div key={audioItem.id} className={`flex items-center justify-between p-2 rounded-lg border ${idx === currentAudioIndex ? 'bg-wedding-blue-100 border-wedding-blue-300' : 'bg-gray-50 border-gray-200'}`}>
@@ -2642,6 +2635,37 @@ function App() {
                     </motion.p>
                 </div>
             </footer>
+
+            {/* Global Audio Element */}
+            <audio
+                ref={audioRef}
+                src={currentAudioUrl}
+                onEnded={handleAudioEnded}
+                title={bgAudioList[currentAudioIndex]?.name || "Wedding Audio"}
+                autoPlay={isPlayingAudio}
+            />
+
+            {/* Floating Audio Toggle */}
+            {bgAudioList.length > 0 && (
+                <button
+                    onClick={() => {
+                        if (isPlayingAudio) {
+                            audioRef.current?.pause();
+                            setIsPlayingAudio(false);
+                        } else {
+                            audioRef.current?.play().then(() => setIsPlayingAudio(true)).catch(e => console.log(e));
+                        }
+                    }}
+                    className={`fixed bottom-6 right-6 z-[4000] w-12 h-12 rounded-full shadow-wedding-lg flex items-center justify-center transition-all duration-300 ${isPlayingAudio ? 'bg-wedding-blue-600 text-white animate-[spin_4s_linear_infinite]' : 'bg-white text-wedding-blue-600 hover:bg-wedding-blue-50 hover:scale-110'}`}
+                    title={isPlayingAudio ? "Tạm dừng nhạc" : "Phát nhạc"}
+                >
+                    <Music size={20} className={!isPlayingAudio ? 'opacity-60' : ''} />
+                    {!isPlayingAudio && (
+                        <span className="absolute inset-0 rounded-full border-2 border-wedding-blue-400 opacity-50 animate-ping"></span>
+                    )}
+                </button>
+            )}
+
         </div >
     );
 }
