@@ -599,8 +599,22 @@ function App() {
     };
 
     const handleAudioEnded = () => {
-        if (bgAudioList.length <= 1) return;
-        setCurrentAudioIndex((prev) => (prev + 1) % bgAudioList.length);
+        if (bgAudioList.length <= 1) {
+            if (audioRef.current && isPlayingAudio) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play().catch(e => console.log(e));
+            }
+            return;
+        }
+        setCurrentAudioIndex((prev) => {
+            const nextIdx = (prev + 1) % bgAudioList.length;
+            setTimeout(() => {
+                if (audioRef.current && isPlayingAudio) {
+                    audioRef.current.play().catch(e => console.log(e));
+                }
+            }, 50);
+            return nextIdx;
+        });
     };
 
     const handleLike = async (id) => {
@@ -818,7 +832,7 @@ function App() {
         setIsAutoPlaying(false);
     };
 
-    const currentAudioUrl = bgAudioList.length > 0 ? bgAudioList[currentAudioIndex].url : '/audio.mp3';
+    const currentAudioUrl = bgAudioList.length > 0 ? bgAudioList[currentAudioIndex]?.url || '' : '';
 
     const handleCommentSubmit = async (e, mediaId) => {
         e.preventDefault();
