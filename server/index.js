@@ -1391,7 +1391,8 @@ app.post("/api/settings/audio", authenticateAdmin, (req, res, next) => {
     });
 
     const audioUrl = cloudinaryResult.secure_url || cloudinaryResult.url;
-    const newAudioItem = { id: publicId, url: audioUrl, name: req.file.originalname };
+    const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    const newAudioItem = { id: publicId, url: audioUrl, name: originalName };
 
     // Fetch existing settings
     let setting = await Setting.findOne({ key: 'background_audio' });

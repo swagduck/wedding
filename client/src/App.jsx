@@ -1713,10 +1713,16 @@ function App() {
                                     <div key={audioItem.id} className={`flex items-center justify-between p-2 rounded-lg border ${idx === currentAudioIndex ? 'bg-wedding-blue-100 border-wedding-blue-300' : 'bg-gray-50 border-gray-200'}`}>
                                         <div
                                             className="text-sm font-medium text-wedding-blue-800 truncate cursor-pointer flex-1"
-                                            onClick={() => setCurrentAudioIndex(idx)}
+                                            onClick={() => {
+                                                setCurrentAudioIndex(idx);
+                                                setIsPlayingAudio(true);
+                                                if (audioRef.current) {
+                                                    setTimeout(() => audioRef.current?.play().catch(e => console.log(e)), 50);
+                                                }
+                                            }}
                                             title="Phát bài này"
                                         >
-                                            {idx === currentAudioIndex && <Loader2 size={12} className="inline mr-1 animate-spin text-wedding-blue-600" />}
+                                            {idx === currentAudioIndex && <Music size={12} className={`inline mr-1 text-wedding-blue-600 ${isPlayingAudio ? 'animate-[spin_2s_linear_infinite]' : ''}`} />}
                                             {audioItem.name || 'Audio file'}
                                         </div>
                                         <button
