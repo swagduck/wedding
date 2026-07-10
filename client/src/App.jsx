@@ -2556,7 +2556,7 @@ function App() {
 
                 {/* Pagination Controls */}
                 {pagination && pagination.totalPages > 1 && (
-                    <div className="flex justify-center items-center gap-4 py-12">
+                    <div className="flex justify-center items-center gap-2 sm:gap-4 py-12">
                         <button
                             onClick={() => {
                                 if (pagination.hasPrevPage) {
@@ -2565,13 +2565,13 @@ function App() {
                                 }
                             }}
                             disabled={!pagination.hasPrevPage}
-                            className={`px-6 py-2.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-2 ${pagination.hasPrevPage ? 'bg-white text-wedding-blue-700 hover:bg-wedding-blue-50 hover:shadow-md border border-wedding-blue-200 dark:bg-slate-800 dark:text-wedding-blue-200 dark:border-slate-700 dark:hover:bg-slate-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-800/50 dark:border-slate-800/50 dark:text-slate-500'}`}
+                            className={`px-4 sm:px-6 py-2.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-1 sm:gap-2 ${pagination.hasPrevPage ? 'bg-white text-wedding-blue-700 hover:bg-wedding-blue-50 hover:shadow-md border border-wedding-blue-200 dark:bg-slate-800 dark:text-wedding-blue-200 dark:border-slate-700 dark:hover:bg-slate-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-800/50 dark:border-slate-800/50 dark:text-slate-500'}`}
                         >
                             <ChevronLeft size={18} />
-                            <span>Trang trước</span>
+                            <span className="hidden sm:inline">Trang trước</span>
                         </button>
                         
-                        <span className="text-wedding-blue-800 dark:text-wedding-blue-200 font-bold px-4 py-2 bg-white/50 dark:bg-slate-800/50 rounded-full border border-wedding-blue-100 dark:border-slate-700 shadow-sm">
+                        <span className="text-wedding-blue-800 dark:text-wedding-blue-200 font-bold px-3 sm:px-4 py-2 bg-white/50 dark:bg-slate-800/50 rounded-full border border-wedding-blue-100 dark:border-slate-700 shadow-sm whitespace-nowrap min-w-[60px] text-center">
                             {pagination.currentPage} / {pagination.totalPages}
                         </span>
                         
@@ -2583,9 +2583,9 @@ function App() {
                                 }
                             }}
                             disabled={!pagination.hasNextPage}
-                            className={`px-6 py-2.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-2 ${pagination.hasNextPage ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white hover:shadow-md' : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-800/50 dark:border-slate-800/50 dark:text-slate-500'}`}
+                            className={`px-4 sm:px-6 py-2.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-1 sm:gap-2 ${pagination.hasNextPage ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white hover:shadow-md' : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-800/50 dark:border-slate-800/50 dark:text-slate-500'}`}
                         >
-                            <span>Trang sau</span>
+                            <span className="hidden sm:inline">Trang sau</span>
                             <ChevronRight size={18} />
                         </button>
                     </div>
