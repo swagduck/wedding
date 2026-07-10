@@ -2179,19 +2179,7 @@ function App() {
                                             <ChevronRight size={24} className="sm:w-6 sm:h-6 w-5 h-5" />
                                         </button>
                                     </div>
-                                    <div className="flex flex-wrap items-center justify-center gap-2 bg-black/40 backdrop-blur-md px-4 sm:px-5 py-2 sm:py-2.5 rounded-3xl border border-white/20 pointer-events-auto max-w-[90vw]">
-                                        {slideshowItems.map((_, idx) => (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={(e) => { e.stopPropagation(); setSlideshowIndex(idx); }}
-                                                className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all duration-300 ${idx === slideshowIndex
-                                                    ? 'bg-white scale-150 shadow-[0_0_12px_rgba(255,255,255,0.8)]'
-                                                    : 'bg-white/40 hover:bg-white/80'}`}
-                                                aria-label={`Slide ${idx + 1}`}
-                                            />
-                                        ))}
-                                    </div>
+                                    <div className="hidden"></div>
                                 </div>
                             )}
                         </>
@@ -2300,19 +2288,7 @@ function App() {
                                 </div>
                             </div>
                             <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-gradient-to-r from-wedding-blue-50 to-wedding-blue-100/80">
-                                <div className="flex flex-wrap justify-center gap-2 max-w-full order-2 md:order-1 flex-1">
-                                    {slideshowItems.map((_, idx) => (
-                                        <button
-                                            key={idx}
-                                            type="button"
-                                            onClick={() => setSlideshowIndex(idx)}
-                                            className={`w-3 h-3 rounded-full cursor-pointer transition-all duration-300 ${idx === slideshowIndex
-                                                ? 'bg-wedding-blue-600 scale-125 shadow-[0_0_10px_rgba(2,132,199,0.5)]'
-                                                : 'bg-wedding-blue-300 hover:bg-wedding-blue-400'}`}
-                                            aria-label={`Slide ${idx + 1}`}
-                                        />
-                                    ))}
-                                </div>
+                                <div className="hidden"></div>
                                 <div className="flex items-center justify-center gap-3 flex-shrink-0 order-1 md:order-2 w-full md:w-auto">
                                     <motion.button
                                         whileHover={{ scale: 1.03 }}
