@@ -6,8 +6,6 @@ const multer = require('multer');
 const cors = require('cors');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
 const NodeCache = require('node-cache');
 require('dotenv').config();
 
@@ -34,14 +32,9 @@ const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
 
 // 2. Middleware
-app.use(cors()); // Cần đặt trước helmet để tránh lỗi CORS bị chặn
-app.use(helmet({ 
-    crossOriginResourcePolicy: false,
-    crossOriginOpenerPolicy: false
-})); // Secure HTTP headers
+app.use(cors()); // Cho phép Frontend truy cập API
 app.use(compression()); // Compress responses
 app.use(express.json()); // Đọc dữ liệu JSON từ request body
-app.use(mongoSanitize()); // Prevent NoSQL injection
 
 // Rate limiting
 const limiter = rateLimit({
