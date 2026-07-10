@@ -57,6 +57,7 @@ const API_URL = import.meta.env.PROD
 function App() {
     const [media, setMedia] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [showLikeEffectId, setShowLikeEffectId] = useState(null);
     const [likedPhotos, setLikedPhotos] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem('likedPhotos')) || [];
@@ -666,6 +667,12 @@ function App() {
         if (likingPhotoId === id) return;
 
         setLikingPhotoId(id);
+        
+        // Trigger heart animation
+        setShowLikeEffectId(id);
+        setTimeout(() => {
+            setShowLikeEffectId(prev => prev === id ? null : prev);
+        }, 1000);
 
         const previousMedia = [...media];
         setMedia(media.map(m =>
@@ -2516,13 +2523,38 @@ function App() {
                                                 handleLike(item._id);
                                             }}
                                             disabled={likingPhotoId === item._id}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border shadow-sm ${likingPhotoId === item._id
+                                            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border shadow-sm ${likingPhotoId === item._id
                                                 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                                                 : item.likes > 0
                                                     ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 shadow-[0_2px_8px_rgba(239,68,68,0.2)]'
                                                     : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-red-500'
                                                 }`}
                                         >
+                                            {/* Floating Hearts Effect */}
+                                            <AnimatePresence>
+                                                {showLikeEffectId === item._id && (
+                                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none w-full h-full z-10">
+                                                        {Array.from({ length: 5 }).map((_, i) => (
+                                                            <motion.div
+                                                                key={i}
+                                                                initial={{ opacity: 1, scale: 0.5, y: 0, x: 0 }}
+                                                                animate={{ 
+                                                                    opacity: 0, 
+                                                                    scale: 1.2 + Math.random() * 0.5, 
+                                                                    y: -40 - Math.random() * 40, 
+                                                                    x: (Math.random() - 0.5) * 50 
+                                                                }}
+                                                                exit={{ opacity: 0 }}
+                                                                transition={{ duration: 0.6 + Math.random() * 0.4, ease: "easeOut" }}
+                                                                className="absolute left-1/2 top-0 -translate-x-1/2"
+                                                            >
+                                                                <Heart size={14} className="text-red-500 fill-current drop-shadow-md" />
+                                                            </motion.div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </AnimatePresence>
+
                                             {likingPhotoId === item._id ? (
                                                 <Loader2 size={16} className="animate-spin" />
                                             ) : (
@@ -2533,7 +2565,7 @@ function App() {
                                                     <Heart size={16} className={likedPhotos.includes(item._id) ? "text-red-500 fill-current drop-shadow-sm" : item.likes > 0 ? "text-red-400/50" : ""} />
                                                 </motion.div>
                                             )}
-                                            <span className="text-sm font-bold">{item.likes > 0 ? item.likes : 'Thích'}</span>
+                                            <span className="text-sm font-bold z-20">{item.likes > 0 ? item.likes : 'Thích'}</span>
                                         </motion.button>
 
                                         {item.comments && item.comments.length > 0 && (
