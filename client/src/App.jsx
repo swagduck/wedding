@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight, Music, Moon, Sun } from 'lucide-react';
+import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight, Music, Moon, Sun, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -2535,33 +2535,42 @@ function App() {
 
                                 {/* Enhanced Actions */}
                                 <div className="flex justify-between items-center gap-2">
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleLike(item._id);
-                                        }}
-                                        disabled={likingPhotoId === item._id}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border shadow-sm ${likingPhotoId === item._id
-                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                            : item.likes > 0
-                                                ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 shadow-[0_2px_8px_rgba(239,68,68,0.2)]'
-                                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-red-500'
-                                            }`}
-                                    >
-                                        {likingPhotoId === item._id ? (
-                                            <Loader2 size={16} className="animate-spin" />
-                                        ) : (
-                                            <motion.div
-                                                animate={item.likes > 0 ? { scale: [1, 1.3, 1], transition: { duration: 0.4, type: "spring", stiffness: 400, damping: 10 } } : {}}
-                                                key={item.likes}
-                                            >
-                                                <Heart size={16} className={likedPhotos.includes(item._id) ? "text-red-500 fill-current drop-shadow-sm" : item.likes > 0 ? "text-red-400/50" : ""} />
-                                            </motion.div>
+                                    <div className="flex gap-2">
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleLike(item._id);
+                                            }}
+                                            disabled={likingPhotoId === item._id}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border shadow-sm ${likingPhotoId === item._id
+                                                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                                : item.likes > 0
+                                                    ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 shadow-[0_2px_8px_rgba(239,68,68,0.2)]'
+                                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-red-500'
+                                                }`}
+                                        >
+                                            {likingPhotoId === item._id ? (
+                                                <Loader2 size={16} className="animate-spin" />
+                                            ) : (
+                                                <motion.div
+                                                    animate={item.likes > 0 ? { scale: [1, 1.3, 1], transition: { duration: 0.4, type: "spring", stiffness: 400, damping: 10 } } : {}}
+                                                    key={item.likes}
+                                                >
+                                                    <Heart size={16} className={likedPhotos.includes(item._id) ? "text-red-500 fill-current drop-shadow-sm" : item.likes > 0 ? "text-red-400/50" : ""} />
+                                                </motion.div>
+                                            )}
+                                            <span className="text-sm font-bold">{item.likes > 0 ? item.likes : 'Thích'}</span>
+                                        </motion.button>
+
+                                        {item.comments && item.comments.length > 0 && (
+                                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full border border-blue-200 shadow-sm cursor-pointer hover:bg-blue-100 transition-colors">
+                                                <MessageCircle size={16} />
+                                                <span className="text-sm font-bold">{item.comments.length}</span>
+                                            </div>
                                         )}
-                                        <span className="text-sm font-bold">{item.likes > 0 ? item.likes : 'Thích'}</span>
-                                    </motion.button>
+                                    </div>
 
                                     {isAdmin && (
                                         <div className="flex items-center gap-1">
