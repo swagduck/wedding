@@ -2557,7 +2557,7 @@ function App() {
                                                 animate={item.likes > 0 ? { scale: [1, 1.3, 1], transition: { duration: 0.4, type: "spring", stiffness: 400, damping: 10 } } : {}}
                                                 key={item.likes}
                                             >
-                                                <Heart size={16} className={item.likes > 0 ? "text-red-500 fill-current drop-shadow-sm" : ""} />
+                                                <Heart size={16} className={likedPhotos.includes(item._id) ? "text-red-500 fill-current drop-shadow-sm" : item.likes > 0 ? "text-red-400/50" : ""} />
                                             </motion.div>
                                         )}
                                         <span className="text-sm font-bold">{item.likes > 0 ? item.likes : 'Thích'}</span>
