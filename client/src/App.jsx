@@ -2499,12 +2499,9 @@ function App() {
 
                             {/* Enhanced Content */}
                             <div className="p-4 bg-gradient-to-br from-white/95 to-wedding-blue-50/90 dark:from-slate-800/95 dark:to-slate-900/90 backdrop-blur-md rounded-b-2xl border-x border-b border-white/40 dark:border-slate-700 shadow-lg">
-                                <div className="flex justify-between items-center mb-3">
-                                    <span className="text-xs font-semibold text-wedding-blue-700 bg-gradient-to-r from-wedding-gold-100 to-wedding-blue-100 px-3 py-1.5 rounded-full border border-wedding-gold-300/40 shadow-sm">
+                                <div className="mb-3">
+                                    <span className="inline-block text-xs font-semibold text-wedding-blue-700 bg-gradient-to-r from-wedding-gold-100 to-wedding-blue-100 px-3 py-1.5 rounded-full border border-wedding-gold-300/40 shadow-sm">
                                         {item.category}
-                                    </span>
-                                    <span className="text-xs text-wedding-blue-600 dark:text-wedding-blue-300 font-medium bg-white/70 dark:bg-slate-800/70 px-2 py-1 rounded-full">
-                                        {new Date(item.createdAt).toLocaleDateString('vi-VN')}
                                     </span>
                                 </div>
 
