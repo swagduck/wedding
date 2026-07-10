@@ -1055,7 +1055,7 @@ function App() {
                                         Gửi những người thương yêu của chúng mình,
                                     </p>
                                     <p className="text-sm sm:text-base text-wedding-blue-700/80 dark:text-wedding-blue-200/80 leading-relaxed">
-                                        Cảm tạ mọi người đã bớt chút thời gian quý báu đến chung vui trong ngày trọng đại của Nhật Huy và Thiên Ý. 
+                                        Cảm ơn mọi người đã bớt chút thời gian quý báu đến chung vui trong ngày trọng đại của Nhật Huy và Thiên Ý. 
                                         Sự hiện diện của mọi người là món quà tuyệt vời nhất đánh dấu khởi đầu cho chặng đường mới của chúng mình.
                                     </p>
                                     <p className="text-sm sm:text-base text-wedding-blue-700/80 dark:text-wedding-blue-200/80 leading-relaxed">
