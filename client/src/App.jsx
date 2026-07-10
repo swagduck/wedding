@@ -58,6 +58,13 @@ const API_URL = import.meta.env.PROD
 function App() {
     const [media, setMedia] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [likedPhotos, setLikedPhotos] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('likedPhotos')) || [];
+        } catch {
+            return [];
+        }
+    });
     const [loading, setLoading] = useState(false);
     const [filterType, setFilterType] = useState('tất cả');
     const [filterCategory, setFilterCategory] = useState('tất cả');
@@ -388,8 +395,20 @@ function App() {
         try {
             if (direction) setIsPageTransitioning(direction);
             const params = new URLSearchParams();
-            if (filterType !== 'tất cả') params.append('type', filterType);
-            if (filterCategory !== 'tất cả') params.append('category', filterCategory);
+            
+            if (filterCategory === 'yêu thích') {
+                if (likedPhotos.length === 0) {
+                    setMedia([]);
+                    setPagination({ currentPage: 1, totalPages: 0, totalItems: 0, itemsPerPage: 20, hasNextPage: false, hasPrevPage: false });
+                    setIsPageTransitioning(null);
+                    return;
+                }
+                params.append('ids', likedPhotos.join(','));
+            } else {
+                if (filterType !== 'tất cả') params.append('type', filterType);
+                if (filterCategory !== 'tất cả') params.append('category', filterCategory);
+            }
+            
             params.append('page', page);
             params.append('limit', 20);
 
@@ -659,6 +678,14 @@ function App() {
             setMedia(prev => prev.map(m =>
                 m._id === id ? res.data : m
             ));
+            
+            // Save to localStorage
+            setLikedPhotos(prev => {
+                const newLiked = prev.includes(id) ? prev : [...prev, id];
+                localStorage.setItem('likedPhotos', JSON.stringify(newLiked));
+                return newLiked;
+            });
+            
             setLikingPhotoId(null);
         } catch (err) {
             setMedia(previousMedia);
@@ -2392,6 +2419,18 @@ function App() {
                                     <ImageIcon size={16} />
                                     <span>Tất cả</span>
                                 </div>
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setFilterCategory('yêu thích')}
+                                className={`px-5 py-2.5 rounded-full font-bold transition-all duration-300 text-sm flex items-center gap-2 ${filterCategory === 'yêu thích'
+                                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-[0_4px_15px_rgba(251,191,36,0.4)]'
+                                    : 'bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-slate-700 border border-yellow-200 dark:border-slate-700 shadow-sm'
+                                    }`}
+                            >
+                                <Star size={16} className={filterCategory === 'yêu thích' ? "fill-current" : ""} />
+                                <span>Đã thích</span>
                             </motion.button>
                             {categories.map((category) => (
                                 <motion.button

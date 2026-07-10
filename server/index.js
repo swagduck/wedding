@@ -517,10 +517,10 @@ const buildCloudinaryVideoPosterUrl = (publicId, { size } = {}) => {
  */
 app.get("/api/media", async (req, res) => {
   try {
-    const { type, category, page = 1, limit = 20 } = req.query;
+    const { type, category, page = 1, limit = 20, ids } = req.query;
     
     // Create cache key
-    const cacheKey = `media_${type || 'all'}_${category || 'all'}_${page}_${limit}`;
+    const cacheKey = `media_${type || 'all'}_${category || 'all'}_${page}_${limit}_${ids ? Buffer.from(ids).toString('base64').substring(0,20) : 'none'}`;
     
     // Try to get from cache first
     const cachedData = cache.get(cacheKey);
@@ -531,8 +531,21 @@ app.get("/api/media", async (req, res) => {
     
     // Build filter
     let filter = {};
-    if (type && type !== 'tất cả') filter.type = type;
-    if (category && category !== 'tất cả') filter.category = category;
+    if (ids) {
+      // If ids parameter is provided, split it and match those IDs
+      const idsArray = ids.split(',').filter(id => id.trim() !== '');
+      if (idsArray.length > 0) {
+        filter._id = { $in: idsArray };
+      } else {
+        return res.status(200).json({
+          media: [],
+          pagination: { currentPage: 1, totalPages: 0, totalItems: 0, itemsPerPage: 20, hasNextPage: false, hasPrevPage: false }
+        });
+      }
+    } else {
+      if (type && type !== 'tất cả') filter.type = type;
+      if (category && category !== 'tất cả') filter.category = category;
+    }
     
     // Calculate pagination
     const pageNum = parseInt(page);
