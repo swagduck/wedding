@@ -396,14 +396,15 @@ function App() {
             const res = await axios.get(`${API_URL}/media?${params}`);
             
             const mediaItems = res.data.media;
-            // Preload images for smooth transition without flashing
-            await Promise.all(mediaItems.map(item => {
+            // Preload ONLY the first 6 images (viewport) to reduce lag. 
+            // The rest will load lazily when the user scrolls down.
+            await Promise.all(mediaItems.slice(0, 6).map(item => {
                 if (item.type === 'video') return Promise.resolve();
                 return new Promise((resolve) => {
                     const img = new Image();
                     img.src = item.thumbUrl || item.url;
                     img.onload = resolve;
-                    img.onerror = resolve; // Resolve on error so we don't block
+                    img.onerror = resolve;
                 });
             }));
 
@@ -412,8 +413,12 @@ function App() {
             
             if (direction) {
                 setTimeout(() => {
-                    document.getElementById('gallery-section')?.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                    const galleryEl = document.getElementById('gallery-section');
+                    if (galleryEl) {
+                        const y = galleryEl.getBoundingClientRect().top + window.scrollY - 80;
+                        window.scrollTo({ top: y, behavior: 'auto' });
+                    }
+                }, 50);
             }
         } catch (err) {
             toast.error("Không thể tải media!");
