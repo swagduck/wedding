@@ -7,7 +7,6 @@ import QRCode from 'qrcode';
 import './slideshow-animations.css';
 
 import Guestbook from './Guestbook';
-import LoveStory from './LoveStory';
 
 const LazyImage = React.memo(
     ({
@@ -2665,9 +2664,6 @@ function App() {
                 )}
 
             </main >
-
-            {/* Love Story Section */}
-            <LoveStory API_URL={API_URL} isAdmin={isAdmin} />
 
             {/* Guestbook Section */}
             <Guestbook API_URL={API_URL} isAdmin={isAdmin} />
