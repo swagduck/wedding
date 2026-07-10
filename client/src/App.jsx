@@ -77,6 +77,7 @@ function App() {
     const [newCategoryForPhoto, setNewCategoryForPhoto] = useState('');
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(null);
     const [pagination, setPagination] = useState(null);
+    const [isPageTransitioning, setIsPageTransitioning] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
     const [bgAudioList, setBgAudioList] = useState([]);
     const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
@@ -383,8 +384,9 @@ function App() {
         }
     }, [slideshowItems.length, slideshowIndex]);
 
-    const fetchMedia = async (page = 1) => {
+    const fetchMedia = async (page = 1, direction = null) => {
         try {
+            if (direction) setIsPageTransitioning(direction);
             const params = new URLSearchParams();
             if (filterType !== 'tất cả') params.append('type', filterType);
             if (filterCategory !== 'tất cả') params.append('category', filterCategory);
@@ -392,11 +394,31 @@ function App() {
             params.append('limit', 20);
 
             const res = await axios.get(`${API_URL}/media?${params}`);
+            
+            const mediaItems = res.data.media;
+            // Preload images for smooth transition without flashing
+            await Promise.all(mediaItems.map(item => {
+                if (item.type === 'video') return Promise.resolve();
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.src = item.thumbUrl || item.url;
+                    img.onload = resolve;
+                    img.onerror = resolve; // Resolve on error so we don't block
+                });
+            }));
 
-            setMedia(res.data.media);
+            setMedia(mediaItems);
             setPagination(res.data.pagination);
+            
+            if (direction) {
+                setTimeout(() => {
+                    document.getElementById('gallery-section')?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+            }
         } catch (err) {
             toast.error("Không thể tải media!");
+        } finally {
+            setIsPageTransitioning(null);
         }
     };
 
@@ -2559,15 +2581,14 @@ function App() {
                     <div className="flex justify-center items-center gap-2 sm:gap-4 py-12">
                         <button
                             onClick={() => {
-                                if (pagination.hasPrevPage) {
-                                    fetchMedia(pagination.currentPage - 1);
-                                    document.getElementById('gallery-section')?.scrollIntoView({ behavior: 'smooth' });
+                                if (pagination.hasPrevPage && !isPageTransitioning) {
+                                    fetchMedia(pagination.currentPage - 1, 'prev');
                                 }
                             }}
-                            disabled={!pagination.hasPrevPage}
+                            disabled={!pagination.hasPrevPage || isPageTransitioning}
                             className={`px-4 sm:px-6 py-2.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-1 sm:gap-2 ${pagination.hasPrevPage ? 'bg-white text-wedding-blue-700 hover:bg-wedding-blue-50 hover:shadow-md border border-wedding-blue-200 dark:bg-slate-800 dark:text-wedding-blue-200 dark:border-slate-700 dark:hover:bg-slate-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-800/50 dark:border-slate-800/50 dark:text-slate-500'}`}
                         >
-                            <ChevronLeft size={18} />
+                            {isPageTransitioning === 'prev' ? <Loader2 size={18} className="animate-spin" /> : <ChevronLeft size={18} />}
                             <span className="hidden sm:inline">Trang trước</span>
                         </button>
                         
@@ -2577,16 +2598,15 @@ function App() {
                         
                         <button
                             onClick={() => {
-                                if (pagination.hasNextPage) {
-                                    fetchMedia(pagination.currentPage + 1);
-                                    document.getElementById('gallery-section')?.scrollIntoView({ behavior: 'smooth' });
+                                if (pagination.hasNextPage && !isPageTransitioning) {
+                                    fetchMedia(pagination.currentPage + 1, 'next');
                                 }
                             }}
-                            disabled={!pagination.hasNextPage}
+                            disabled={!pagination.hasNextPage || isPageTransitioning}
                             className={`px-4 sm:px-6 py-2.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-1 sm:gap-2 ${pagination.hasNextPage ? 'bg-gradient-to-r from-wedding-blue-500 to-wedding-blue-700 text-white hover:shadow-md' : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-800/50 dark:border-slate-800/50 dark:text-slate-500'}`}
                         >
                             <span className="hidden sm:inline">Trang sau</span>
-                            <ChevronRight size={18} />
+                            {isPageTransitioning === 'next' ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}
                         </button>
                     </div>
                 )}
