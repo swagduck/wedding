@@ -39,9 +39,9 @@ app.use(helmet({
     crossOriginResourcePolicy: false,
     crossOriginOpenerPolicy: false
 })); // Secure HTTP headers
-app.use(mongoSanitize()); // Prevent NoSQL injection
 app.use(compression()); // Compress responses
 app.use(express.json()); // Đọc dữ liệu JSON từ request body
+app.use(mongoSanitize()); // Prevent NoSQL injection
 
 // Rate limiting
 const limiter = rateLimit({
