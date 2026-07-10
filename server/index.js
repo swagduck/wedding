@@ -520,7 +520,7 @@ app.get("/api/media", async (req, res) => {
     const { type, category, page = 1, limit = 20, ids } = req.query;
     
     // Create cache key
-    const cacheKey = `media_${type || 'all'}_${category || 'all'}_${page}_${limit}_${ids ? Buffer.from(ids).toString('base64').substring(0,20) : 'none'}`;
+    const cacheKey = `media_${type || 'all'}_${category || 'all'}_${page}_${limit}_${ids ? ids.length + '_' + ids.substring(0,10) : 'none'}`;
     
     // Try to get from cache first
     const cachedData = cache.get(cacheKey);
