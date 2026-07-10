@@ -1051,15 +1051,15 @@ function App() {
                                 </h3>
                                 
                                 <div className="space-y-4 mb-8">
-                                    <p className="text-base sm:text-lg text-wedding-blue-800 dark:text-wedding-blue-200 leading-relaxed font-playfair italic">
+                                    <p className="text-wedding-blue-800 dark:text-wedding-blue-200 font-semibold mb-2">
                                         Gửi những người thương yêu của chúng mình,
                                     </p>
-                                    <p className="text-sm sm:text-base text-wedding-blue-700/80 dark:text-wedding-blue-200/80 leading-relaxed">
-                                        Cảm ơn mọi người đã bớt chút thời gian quý báu đến chung vui trong ngày trọng đại của Nhật Huy và Thiên Ý. 
-                                        Sự hiện diện của mọi người là món quà tuyệt vời nhất đánh dấu khởi đầu cho chặng đường mới của chúng mình.
+                                    <p className="text-sm sm:text-base text-wedding-blue-700/80 dark:text-wedding-blue-200/80 leading-relaxed mb-2">
+                                        Từ tận đáy lòng, Nhật Huy và Thiên Ý xin gửi lời cảm ơn chân thành và sâu sắc nhất đến mọi người vì đã dành thời gian quý báu đến chung vui trong ngày trọng đại. 
+                                        Sự hiện diện cùng những lời chúc phúc tốt đẹp của mọi người chính là món quà vô giá, đánh dấu một khởi đầu viên mãn cho chặng đường mới của chúng mình.
                                     </p>
                                     <p className="text-sm sm:text-base text-wedding-blue-700/80 dark:text-wedding-blue-200/80 leading-relaxed">
-                                        Đây là thư viện ảnh lưu lại những khoảnh khắc đáng nhớ nhất. Xin hãy cùng nhìn lại và lưu giữ những kỷ niệm đẹp đẽ này nhé!
+                                        Thư viện ảnh này là nơi lưu giữ lại những khoảnh khắc tuyệt vời nhất của đám cưới. Mời mọi người cùng nhìn ngắm, tải về và chia sẻ những kỷ niệm vô giá này nhé!
                                     </p>
                                 </div>
 
