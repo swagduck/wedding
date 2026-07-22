@@ -4,6 +4,7 @@ import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Spar
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import './slideshow-animations.css';
 
 import Guestbook from './Guestbook';
@@ -139,6 +140,39 @@ function App() {
             document.body.style.overflow = 'unset';
         };
     }, [zoomedImage, showSlideshowFullscreen, showWelcomeLetter]);
+
+    const navigateZoomedImage = useCallback((direction) => {
+        if (!zoomedImage || media.length === 0) return;
+        const currentIndex = media.findIndex(m => m._id === zoomedImage._id);
+        if (currentIndex === -1) return;
+        
+        let newIndex;
+        if (direction === 'next') {
+            newIndex = (currentIndex + 1) % media.length;
+        } else {
+            newIndex = (currentIndex - 1 + media.length) % media.length;
+        }
+        setZoomedImage(media[newIndex]);
+    }, [zoomedImage, media]);
+
+    // Handle ESC key and arrow keys to navigate images
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (zoomedImage || showSlideshowFullscreen || showWelcomeLetter) {
+                    setZoomedImage(null);
+                    setShowSlideshowFullscreen(false);
+                    setShowWelcomeLetter(false);
+                }
+            } else if (e.key === 'ArrowRight') {
+                if (zoomedImage) navigateZoomedImage('next');
+            } else if (e.key === 'ArrowLeft') {
+                if (zoomedImage) navigateZoomedImage('prev');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [zoomedImage, showSlideshowFullscreen, showWelcomeLetter, navigateZoomedImage]);
 
     // Welcome Letter Effect
     useEffect(() => {
@@ -1876,7 +1910,7 @@ function App() {
                             </motion.button>
 
                             {/* Left/Top: Media Container */}
-                            <div className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0">
+                            <div className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0 group">
                                 {zoomedImage.type === 'video' ? (
                                     <video
                                         src={zoomedImage.url}
@@ -1885,12 +1919,30 @@ function App() {
                                         autoPlay
                                     />
                                 ) : (
-                                    <img
-                                        src={zoomedImage.url}
-                                        alt="Wedding moment zoomed"
-                                        className="max-w-full max-h-full object-contain"
-                                    />
+                                    <TransformWrapper centerZoomedOut={true}>
+                                        <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
+                                            <img
+                                                src={zoomedImage.url}
+                                                alt="Wedding moment zoomed"
+                                                className="max-w-full max-h-full object-contain cursor-zoom-in"
+                                            />
+                                        </TransformComponent>
+                                    </TransformWrapper>
                                 )}
+                                
+                                {/* Navigation Buttons */}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); navigateZoomedImage('prev'); }}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-all z-[5010] border border-white/20 opacity-0 group-hover:opacity-100 md:opacity-100"
+                                >
+                                    <ChevronLeft size={24} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); navigateZoomedImage('next'); }}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-all z-[5010] border border-white/20 opacity-0 group-hover:opacity-100 md:opacity-100"
+                                >
+                                    <ChevronRight size={24} />
+                                </button>
                                 
                                 {/* Mobile Swipe Up Hint */}
                                 <div className="absolute bottom-8 md:hidden flex flex-col items-center pointer-events-none opacity-60">
