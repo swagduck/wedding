@@ -181,59 +181,6 @@ function App() {
         };
     }, [zoomedImage, showSlideshowFullscreen, showWelcomeLetter]);
 
-    const navigateZoomedImage = useCallback(async (direction, currentOffset = 0) => {
-        if (!zoomedImage || media.length === 0) return;
-        const currentIndex = media.findIndex(m => m._id === zoomedImage._id);
-        if (currentIndex === -1) return;
-        
-        if (direction === 'next') {
-            if (currentIndex === media.length - 1 && pagination.hasNextPage) {
-                const fetchedMedia = await fetchMedia(pagination.currentPage + 1, 'next');
-                if (fetchedMedia && fetchedMedia.length > 0) {
-                    setSlideDirection(1);
-                    setDragOffset(0);
-                    setZoomedImage(fetchedMedia[0]);
-                }
-            } else {
-                setSlideDirection(1);
-                setDragOffset(currentOffset);
-                setZoomedImage(media[(currentIndex + 1) % media.length]);
-            }
-        } else {
-            if (currentIndex === 0 && pagination.hasPrevPage) {
-                const fetchedMedia = await fetchMedia(pagination.currentPage - 1, 'prev');
-                if (fetchedMedia && fetchedMedia.length > 0) {
-                    setSlideDirection(-1);
-                    setDragOffset(0);
-                    setZoomedImage(fetchedMedia[fetchedMedia.length - 1]);
-                }
-            } else {
-                setSlideDirection(-1);
-                setDragOffset(currentOffset);
-                setZoomedImage(media[(currentIndex - 1 + media.length) % media.length]);
-            }
-        }
-    }, [zoomedImage, media, pagination, fetchMedia]);
-
-    // Handle ESC key and arrow keys to navigate images
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                if (zoomedImage || showSlideshowFullscreen || showWelcomeLetter) {
-                    setZoomedImage(null);
-                    setShowSlideshowFullscreen(false);
-                    setShowWelcomeLetter(false);
-                }
-            } else if (e.key === 'ArrowRight') {
-                if (zoomedImage) navigateZoomedImage('next');
-            } else if (e.key === 'ArrowLeft') {
-                if (zoomedImage) navigateZoomedImage('prev');
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [zoomedImage, showSlideshowFullscreen, showWelcomeLetter, navigateZoomedImage]);
-
     // Welcome Letter Effect
     useEffect(() => {
         const hasSeen = localStorage.getItem('weddingWelcomeLetter');
@@ -540,6 +487,59 @@ function App() {
             setIsPageTransitioning(null);
         }
     };
+
+    const navigateZoomedImage = useCallback(async (direction, currentOffset = 0) => {
+        if (!zoomedImage || media.length === 0) return;
+        const currentIndex = media.findIndex(m => m._id === zoomedImage._id);
+        if (currentIndex === -1) return;
+        
+        if (direction === 'next') {
+            if (currentIndex === media.length - 1 && pagination.hasNextPage) {
+                const fetchedMedia = await fetchMedia(pagination.currentPage + 1, 'next');
+                if (fetchedMedia && fetchedMedia.length > 0) {
+                    setSlideDirection(1);
+                    setDragOffset(0);
+                    setZoomedImage(fetchedMedia[0]);
+                }
+            } else {
+                setSlideDirection(1);
+                setDragOffset(currentOffset);
+                setZoomedImage(media[(currentIndex + 1) % media.length]);
+            }
+        } else {
+            if (currentIndex === 0 && pagination.hasPrevPage) {
+                const fetchedMedia = await fetchMedia(pagination.currentPage - 1, 'prev');
+                if (fetchedMedia && fetchedMedia.length > 0) {
+                    setSlideDirection(-1);
+                    setDragOffset(0);
+                    setZoomedImage(fetchedMedia[fetchedMedia.length - 1]);
+                }
+            } else {
+                setSlideDirection(-1);
+                setDragOffset(currentOffset);
+                setZoomedImage(media[(currentIndex - 1 + media.length) % media.length]);
+            }
+        }
+    }, [zoomedImage, media, pagination, fetchMedia]);
+
+    // Handle ESC key and arrow keys to navigate images
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (zoomedImage || showSlideshowFullscreen || showWelcomeLetter) {
+                    setZoomedImage(null);
+                    setShowSlideshowFullscreen(false);
+                    setShowWelcomeLetter(false);
+                }
+            } else if (e.key === 'ArrowRight') {
+                if (zoomedImage) navigateZoomedImage('next');
+            } else if (e.key === 'ArrowLeft') {
+                if (zoomedImage) navigateZoomedImage('prev');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [zoomedImage, showSlideshowFullscreen, showWelcomeLetter, navigateZoomedImage]);
 
     useEffect(() => {
         fetchMedia(1); // Reset to first page when filters change
