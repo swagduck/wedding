@@ -2011,13 +2011,22 @@ function App() {
                                         }}
                                     >
                                         {/* Prev Image Peek */}
-                                        {prevMedia && (
+                                        {prevMedia ? (
                                             <div className="absolute right-full w-full h-full flex items-center justify-center opacity-30 scale-95 pointer-events-none">
                                                 {prevMedia.type === 'video' ? (
                                                     <div className="w-full h-full max-w-lg bg-slate-900 flex items-center justify-center"><Film size={48} className="text-gray-500" /></div>
                                                 ) : (
                                                     <img src={prevMedia.url} className="max-w-full max-h-full object-contain" draggable="false" />
                                                 )}
+                                            </div>
+                                        ) : pagination.hasPrevPage && (
+                                            <div className="absolute right-full w-full h-full flex flex-col items-center justify-center opacity-80 pointer-events-none">
+                                                <div className="bg-black/50 backdrop-blur-xl border border-white/20 p-8 rounded-3xl flex flex-col items-center shadow-2xl">
+                                                    <Loader2 size={40} className="text-white animate-spin mb-4" />
+                                                    <p className="text-white font-medium text-lg tracking-wide drop-shadow-md">
+                                                        Kéo để về Trang {pagination.currentPage - 1}
+                                                    </p>
+                                                </div>
                                             </div>
                                         )}
 
@@ -2051,13 +2060,22 @@ function App() {
                                         </div>
 
                                         {/* Next Image Peek */}
-                                        {nextMedia && (
+                                        {nextMedia ? (
                                             <div className="absolute left-full w-full h-full flex items-center justify-center opacity-30 scale-95 pointer-events-none">
                                                 {nextMedia.type === 'video' ? (
                                                     <div className="w-full h-full max-w-lg bg-slate-900 flex items-center justify-center"><Film size={48} className="text-gray-500" /></div>
                                                 ) : (
                                                     <img src={nextMedia.url} className="max-w-full max-h-full object-contain" draggable="false" />
                                                 )}
+                                            </div>
+                                        ) : pagination.hasNextPage && (
+                                            <div className="absolute left-full w-full h-full flex flex-col items-center justify-center opacity-80 pointer-events-none">
+                                                <div className="bg-black/50 backdrop-blur-xl border border-white/20 p-8 rounded-3xl flex flex-col items-center shadow-2xl">
+                                                    <Loader2 size={40} className="text-white animate-spin mb-4" />
+                                                    <p className="text-white font-medium text-lg tracking-wide drop-shadow-md">
+                                                        Kéo để sang Trang {pagination.currentPage + 1}
+                                                    </p>
+                                                </div>
                                             </div>
                                         )}
                                     </motion.div>
