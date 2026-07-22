@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { useSwipeable } from 'react-swipeable';
 import './slideshow-animations.css';
 
 import Guestbook from './Guestbook';
@@ -154,6 +155,17 @@ function App() {
         }
         setZoomedImage(media[newIndex]);
     }, [zoomedImage, media]);
+
+    const swipeHandlers = useSwipeable({
+        onSwipedLeft: () => {
+            if (zoomedImage) navigateZoomedImage('next');
+        },
+        onSwipedRight: () => {
+            if (zoomedImage) navigateZoomedImage('prev');
+        },
+        preventDefaultTouchmoveEvent: false,
+        trackMouse: false
+    });
 
     // Handle ESC key and arrow keys to navigate images
     useEffect(() => {
@@ -1910,7 +1922,7 @@ function App() {
                             </motion.button>
 
                             {/* Left/Top: Media Container */}
-                            <div className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0 group">
+                            <div {...swipeHandlers} className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0 group">
                                 {zoomedImage.type === 'video' ? (
                                     <video
                                         src={zoomedImage.url}
@@ -1933,13 +1945,13 @@ function App() {
                                 {/* Navigation Buttons */}
                                 <button
                                     onClick={(e) => { e.stopPropagation(); navigateZoomedImage('prev'); }}
-                                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-all z-[5010] border border-white/20 opacity-0 group-hover:opacity-100 md:opacity-100"
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-all z-[5010] border border-white/20 opacity-0 group-hover:opacity-100 md:opacity-100 hidden md:block"
                                 >
                                     <ChevronLeft size={24} />
                                 </button>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); navigateZoomedImage('next'); }}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-all z-[5010] border border-white/20 opacity-0 group-hover:opacity-100 md:opacity-100"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-all z-[5010] border border-white/20 opacity-0 group-hover:opacity-100 md:opacity-100 hidden md:block"
                                 >
                                     <ChevronRight size={24} />
                                 </button>
