@@ -181,23 +181,39 @@ function App() {
         };
     }, [zoomedImage, showSlideshowFullscreen, showWelcomeLetter]);
 
-    const navigateZoomedImage = useCallback((direction, currentOffset = 0) => {
+    const navigateZoomedImage = useCallback(async (direction, currentOffset = 0) => {
         if (!zoomedImage || media.length === 0) return;
         const currentIndex = media.findIndex(m => m._id === zoomedImage._id);
         if (currentIndex === -1) return;
         
-        let newIndex;
         if (direction === 'next') {
-            newIndex = (currentIndex + 1) % media.length;
-            setSlideDirection(1);
+            if (currentIndex === media.length - 1 && pagination.hasNextPage) {
+                const fetchedMedia = await fetchMedia(pagination.currentPage + 1, 'next');
+                if (fetchedMedia && fetchedMedia.length > 0) {
+                    setSlideDirection(1);
+                    setDragOffset(0);
+                    setZoomedImage(fetchedMedia[0]);
+                }
+            } else {
+                setSlideDirection(1);
+                setDragOffset(currentOffset);
+                setZoomedImage(media[(currentIndex + 1) % media.length]);
+            }
         } else {
-            newIndex = (currentIndex - 1 + media.length) % media.length;
-            setSlideDirection(-1);
+            if (currentIndex === 0 && pagination.hasPrevPage) {
+                const fetchedMedia = await fetchMedia(pagination.currentPage - 1, 'prev');
+                if (fetchedMedia && fetchedMedia.length > 0) {
+                    setSlideDirection(-1);
+                    setDragOffset(0);
+                    setZoomedImage(fetchedMedia[fetchedMedia.length - 1]);
+                }
+            } else {
+                setSlideDirection(-1);
+                setDragOffset(currentOffset);
+                setZoomedImage(media[(currentIndex - 1 + media.length) % media.length]);
+            }
         }
-        
-        setDragOffset(currentOffset);
-        setZoomedImage(media[newIndex]);
-    }, [zoomedImage, media]);
+    }, [zoomedImage, media, pagination, fetchMedia]);
 
     // Handle ESC key and arrow keys to navigate images
     useEffect(() => {
@@ -517,6 +533,7 @@ function App() {
                     }
                 }, 50);
             }
+            return mediaItems;
         } catch (err) {
             toast.error("Không thể tải media!");
         } finally {
@@ -1932,8 +1949,15 @@ function App() {
             {
                 zoomedImage && (() => {
                     const currentIndex = media.findIndex(m => m._id === zoomedImage._id);
-                    const prevMedia = media.length > 1 ? media[(currentIndex - 1 + media.length) % media.length] : null;
-                    const nextMedia = media.length > 1 ? media[(currentIndex + 1) % media.length] : null;
+                    let prevMedia = null;
+                    let nextMedia = null;
+                    if (media.length > 1) {
+                        if (currentIndex > 0) prevMedia = media[currentIndex - 1];
+                        else if (!pagination.hasPrevPage) prevMedia = media[media.length - 1]; // Loop within same page if no prev page
+
+                        if (currentIndex < media.length - 1) nextMedia = media[currentIndex + 1];
+                        else if (!pagination.hasNextPage) nextMedia = media[0]; // Loop within same page if no next page
+                    }
                     
                     return (
                         <div
