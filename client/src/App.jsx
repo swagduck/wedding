@@ -10,6 +10,21 @@ import './slideshow-animations.css';
 
 import Guestbook from './Guestbook';
 
+const slideVariants = {
+    enter: (direction) => ({
+        x: direction > 0 ? '100%' : '-100%',
+        opacity: 0
+    }),
+    center: {
+        x: 0,
+        opacity: 1
+    },
+    exit: (direction) => ({
+        x: direction > 0 ? '-100%' : '100%',
+        opacity: 0
+    })
+};
+
 const LazyImage = React.memo(
     ({
         src,
