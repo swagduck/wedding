@@ -10,19 +10,22 @@ import './slideshow-animations.css';
 import Guestbook from './Guestbook';
 
 const slideVariants = {
-    enter: (direction) => ({
-        x: direction > 0 ? '100%' : '-100%',
-        opacity: 1,
+    enter: ({ direction, offset }) => ({
+        x: direction > 0 ? window.innerWidth + offset : -window.innerWidth + offset,
+        scale: 0.95,
+        opacity: 0.3,
         zIndex: 1
     }),
     center: {
         x: 0,
+        scale: 1,
         opacity: 1,
         zIndex: 1
     },
-    exit: (direction) => ({
-        x: direction > 0 ? '-100%' : '100%',
-        opacity: 1,
+    exit: ({ direction }) => ({
+        x: direction > 0 ? -window.innerWidth : window.innerWidth,
+        scale: 0.95,
+        opacity: 0.3,
         zIndex: 0
     })
 };
@@ -101,6 +104,7 @@ function App() {
     const [zoomedImage, setZoomedImage] = useState(null);
     const [isZoomedIn, setIsZoomedIn] = useState(false);
     const [slideDirection, setSlideDirection] = useState(1);
+    const [dragOffset, setDragOffset] = useState(0);
     const [showSwipeHint, setShowSwipeHint] = useState(false);
     const [editingPhoto, setEditingPhoto] = useState(null);
     const [newCategoryForPhoto, setNewCategoryForPhoto] = useState('');
@@ -177,7 +181,7 @@ function App() {
         };
     }, [zoomedImage, showSlideshowFullscreen, showWelcomeLetter]);
 
-    const navigateZoomedImage = useCallback((direction) => {
+    const navigateZoomedImage = useCallback((direction, currentOffset = 0) => {
         if (!zoomedImage || media.length === 0) return;
         const currentIndex = media.findIndex(m => m._id === zoomedImage._id);
         if (currentIndex === -1) return;
@@ -190,6 +194,8 @@ function App() {
             newIndex = (currentIndex - 1 + media.length) % media.length;
             setSlideDirection(-1);
         }
+        
+        setDragOffset(currentOffset);
         setZoomedImage(media[newIndex]);
     }, [zoomedImage, media]);
 
@@ -1954,15 +1960,19 @@ function App() {
 
                             {/* Left/Top: Media Container */}
                             <div className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0 group overflow-hidden">
-                                <AnimatePresence initial={false} custom={slideDirection} mode="popLayout">
+                                <AnimatePresence initial={false} custom={{ direction: slideDirection, offset: dragOffset }} mode="popLayout">
                                     <motion.div
                                         key={zoomedImage._id}
-                                        custom={slideDirection}
+                                        custom={{ direction: slideDirection, offset: dragOffset }}
                                         variants={slideVariants}
                                         initial="enter"
                                         animate="center"
                                         exit="exit"
-                                        transition={{ type: "tween", duration: 0.3, ease: "easeInOut" }}
+                                        transition={{ 
+                                            x: { type: "spring", stiffness: 300, damping: 30 },
+                                            opacity: { duration: 0.2 },
+                                            scale: { duration: 0.2 }
+                                        }}
                                         className="absolute inset-0 w-full h-full flex items-center justify-center"
                                         drag={!isZoomedIn ? "x" : false}
                                         dragConstraints={{ left: 0, right: 0 }}
@@ -1970,19 +1980,19 @@ function App() {
                                         onDragEnd={(e, { offset, velocity }) => {
                                             const swipe = offset.x;
                                             if (swipe < -50 || velocity.x < -500) {
-                                                navigateZoomedImage('next');
+                                                navigateZoomedImage('next', offset.x);
                                             } else if (swipe > 50 || velocity.x > 500) {
-                                                navigateZoomedImage('prev');
+                                                navigateZoomedImage('prev', offset.x);
                                             }
                                         }}
                                     >
                                         {/* Prev Image Peek */}
                                         {prevMedia && (
-                                            <div className="absolute right-full w-full h-full flex items-center justify-center opacity-30 p-4 scale-95 pointer-events-none">
+                                            <div className="absolute right-full w-full h-full flex items-center justify-center opacity-30 scale-95 pointer-events-none">
                                                 {prevMedia.type === 'video' ? (
-                                                    <div className="w-full h-full max-w-lg bg-slate-900 rounded-xl flex items-center justify-center"><Film size={48} className="text-gray-500" /></div>
+                                                    <div className="w-full h-full max-w-lg bg-slate-900 flex items-center justify-center"><Film size={48} className="text-gray-500" /></div>
                                                 ) : (
-                                                    <img src={prevMedia.url} className="max-w-full max-h-full object-contain rounded-xl shadow-lg blur-[1px]" draggable="false" />
+                                                    <img src={prevMedia.url} className="max-w-full max-h-full object-contain" draggable="false" />
                                                 )}
                                             </div>
                                         )}
@@ -2018,11 +2028,11 @@ function App() {
 
                                         {/* Next Image Peek */}
                                         {nextMedia && (
-                                            <div className="absolute left-full w-full h-full flex items-center justify-center opacity-30 p-4 scale-95 pointer-events-none">
+                                            <div className="absolute left-full w-full h-full flex items-center justify-center opacity-30 scale-95 pointer-events-none">
                                                 {nextMedia.type === 'video' ? (
-                                                    <div className="w-full h-full max-w-lg bg-slate-900 rounded-xl flex items-center justify-center"><Film size={48} className="text-gray-500" /></div>
+                                                    <div className="w-full h-full max-w-lg bg-slate-900 flex items-center justify-center"><Film size={48} className="text-gray-500" /></div>
                                                 ) : (
-                                                    <img src={nextMedia.url} className="max-w-full max-h-full object-contain rounded-xl shadow-lg blur-[1px]" draggable="false" />
+                                                    <img src={nextMedia.url} className="max-w-full max-h-full object-contain" draggable="false" />
                                                 )}
                                             </div>
                                         )}
