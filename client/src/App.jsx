@@ -12,15 +12,18 @@ import Guestbook from './Guestbook';
 const slideVariants = {
     enter: (direction) => ({
         x: direction > 0 ? '100%' : '-100%',
-        opacity: 0
+        opacity: 1,
+        zIndex: 1
     }),
     center: {
         x: 0,
-        opacity: 1
+        opacity: 1,
+        zIndex: 1
     },
     exit: (direction) => ({
         x: direction > 0 ? '-100%' : '100%',
-        opacity: 0
+        opacity: 1,
+        zIndex: 0
     })
 };
 
@@ -1921,11 +1924,16 @@ function App() {
 
             {/* Image Zoom Modal */}
             {
-                zoomedImage && (
-                    <div
-                        className="fixed inset-0 bg-black/100 md:bg-black/90 md:backdrop-blur-sm md:flex md:items-center md:justify-center z-[5000] p-0 md:p-6 overflow-y-auto md:overflow-hidden"
-                        onClick={() => setZoomedImage(null)}
-                    >
+                zoomedImage && (() => {
+                    const currentIndex = media.findIndex(m => m._id === zoomedImage._id);
+                    const prevMedia = media.length > 1 ? media[(currentIndex - 1 + media.length) % media.length] : null;
+                    const nextMedia = media.length > 1 ? media[(currentIndex + 1) % media.length] : null;
+                    
+                    return (
+                        <div
+                            className="fixed inset-0 bg-black/100 md:bg-black/90 md:backdrop-blur-sm md:flex md:items-center md:justify-center z-[5000] p-0 md:p-6 overflow-y-auto md:overflow-hidden"
+                            onClick={() => setZoomedImage(null)}
+                        >
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -1958,7 +1966,7 @@ function App() {
                                         className="absolute inset-0 w-full h-full flex items-center justify-center"
                                         drag={!isZoomedIn ? "x" : false}
                                         dragConstraints={{ left: 0, right: 0 }}
-                                        dragElastic={0.8}
+                                        dragElastic={1}
                                         onDragEnd={(e, { offset, velocity }) => {
                                             const swipe = offset.x;
                                             if (swipe < -50 || velocity.x < -500) {
@@ -1968,30 +1976,55 @@ function App() {
                                             }
                                         }}
                                     >
-                                        {zoomedImage.type === 'video' ? (
-                                            <video
-                                                src={zoomedImage.url}
-                                                className="max-w-full max-h-full object-contain pointer-events-none"
-                                                controls
-                                                autoPlay
-                                            />
-                                        ) : (
-                                            <TransformWrapper 
-                                                centerZoomedOut={true}
-                                                panning={{ disabled: !isZoomedIn }}
-                                                onTransformed={(ref) => {
-                                                    setIsZoomedIn(ref.state.scale > 1);
-                                                }}
-                                            >
-                                                <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
-                                                    <img
-                                                        src={zoomedImage.url}
-                                                        alt="Wedding moment zoomed"
-                                                        className={`max-w-full max-h-full object-contain ${!isZoomedIn ? 'cursor-grab active:cursor-grabbing pointer-events-none' : 'cursor-zoom-in'}`}
-                                                        draggable="false"
-                                                    />
-                                                </TransformComponent>
-                                            </TransformWrapper>
+                                        {/* Prev Image Peek */}
+                                        {prevMedia && (
+                                            <div className="absolute right-full w-full h-full flex items-center justify-center opacity-30 p-4 scale-95 pointer-events-none">
+                                                {prevMedia.type === 'video' ? (
+                                                    <div className="w-full h-full max-w-lg bg-slate-900 rounded-xl flex items-center justify-center"><Film size={48} className="text-gray-500" /></div>
+                                                ) : (
+                                                    <img src={prevMedia.url} className="max-w-full max-h-full object-contain rounded-xl shadow-lg blur-[1px]" draggable="false" />
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Current Image */}
+                                        <div className="relative w-full h-full flex items-center justify-center">
+                                            {zoomedImage.type === 'video' ? (
+                                                <video
+                                                    src={zoomedImage.url}
+                                                    className="max-w-full max-h-full object-contain pointer-events-none"
+                                                    controls
+                                                    autoPlay
+                                                />
+                                            ) : (
+                                                <TransformWrapper 
+                                                    centerZoomedOut={true}
+                                                    panning={{ disabled: !isZoomedIn }}
+                                                    onTransformed={(ref) => {
+                                                        setIsZoomedIn(ref.state.scale > 1);
+                                                    }}
+                                                >
+                                                    <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
+                                                        <img
+                                                            src={zoomedImage.url}
+                                                            alt="Wedding moment zoomed"
+                                                            className={`max-w-full max-h-full object-contain ${!isZoomedIn ? 'cursor-grab active:cursor-grabbing pointer-events-none' : 'cursor-zoom-in'}`}
+                                                            draggable="false"
+                                                        />
+                                                    </TransformComponent>
+                                                </TransformWrapper>
+                                            )}
+                                        </div>
+
+                                        {/* Next Image Peek */}
+                                        {nextMedia && (
+                                            <div className="absolute left-full w-full h-full flex items-center justify-center opacity-30 p-4 scale-95 pointer-events-none">
+                                                {nextMedia.type === 'video' ? (
+                                                    <div className="w-full h-full max-w-lg bg-slate-900 rounded-xl flex items-center justify-center"><Film size={48} className="text-gray-500" /></div>
+                                                ) : (
+                                                    <img src={nextMedia.url} className="max-w-full max-h-full object-contain rounded-xl shadow-lg blur-[1px]" draggable="false" />
+                                                )}
+                                            </div>
                                         )}
                                     </motion.div>
                                 </AnimatePresence>
@@ -2166,7 +2199,8 @@ function App() {
                             </div>
                         </motion.div>
                     </div>
-                )
+                );
+            })()
             }
 
             {/* Add to Slideshow Picker Modal */}
