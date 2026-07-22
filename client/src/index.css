@@ -15,6 +15,17 @@
     .hide-cursor, .hide-cursor * {
         cursor: none !important;
     }
+    
+    .gallery-item {
+        content-visibility: auto;
+        contain-intrinsic-size: 300px;
+    }
+    
+    .gpu-accelerated {
+        transform: translateZ(0);
+        will-change: transform;
+        backface-visibility: hidden;
+    }
 }
 
 @layer components {

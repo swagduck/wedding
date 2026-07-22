@@ -1973,7 +1973,7 @@ function App() {
                                             opacity: { duration: 0.2 },
                                             scale: { duration: 0.2 }
                                         }}
-                                        className="absolute inset-0 w-full h-full flex items-center justify-center"
+                                        className="absolute inset-0 w-full h-full flex items-center justify-center gpu-accelerated"
                                         drag={!isZoomedIn ? "x" : false}
                                         dragConstraints={{ left: 0, right: 0 }}
                                         dragElastic={1}
@@ -2627,11 +2627,11 @@ function App() {
                             whileInView="visible"
                             viewport={{ once: true, margin: "-50px" }}
                             transition={{ duration: 0.5, delay: (index % 10) * 0.1 }}
-                            className="gallery-item group cursor-pointer transform transition-all duration-500 hover:-translate-y-2 rounded-2xl overflow-hidden mb-4 sm:mb-6 lg:mb-8"
+                            className="gallery-item group cursor-pointer transform transition-transform duration-500 hover:-translate-y-2 rounded-2xl overflow-hidden mb-4 sm:mb-6 lg:mb-8 gpu-accelerated"
                             onClick={() => setZoomedImage(item)}
                         >
                             {/* Media Container */}
-                            <div className="aspect-square relative overflow-hidden rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] group-hover:shadow-[0_20px_40px_rgba(2,132,199,0.2)] transition-all duration-500 border border-white/60 backdrop-blur-sm bg-white/40">
+                            <div className="aspect-square relative overflow-hidden rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-white/60 backdrop-blur-sm bg-white/40">
                                 {/* Decorative corner elements */}
                                 <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-wedding-gold-400/40 rounded-tl-lg" />
                                 <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-wedding-gold-400/40 rounded-tr-lg" />
