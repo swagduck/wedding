@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { useSwipeable } from 'react-swipeable';
 import './slideshow-animations.css';
 
 import Guestbook from './Guestbook';
@@ -97,6 +96,7 @@ function App() {
     const [multipleFiles, setMultipleFiles] = useState([]);
     const [likingPhotoId, setLikingPhotoId] = useState(null);
     const [zoomedImage, setZoomedImage] = useState(null);
+    const [isZoomedIn, setIsZoomedIn] = useState(false);
     const [slideDirection, setSlideDirection] = useState(1);
     const [showSwipeHint, setShowSwipeHint] = useState(false);
     const [editingPhoto, setEditingPhoto] = useState(null);
@@ -145,7 +145,7 @@ function App() {
         localStorage.setItem('weddingDarkMode', isDarkMode);
     }, [isDarkMode]);
 
-    // Lock body scroll when modals are open to prevent background scrolling and jumping
+    // Handle scroll locking for modals
     useEffect(() => {
         if (zoomedImage || showSlideshowFullscreen || showWelcomeLetter) {
             // Store current scroll position to prevent iOS jumping
@@ -154,6 +154,9 @@ function App() {
             document.body.style.overflow = 'unset';
         }
         
+        // Reset zoom state on new image
+        setIsZoomedIn(false);
+
         // Add side-effect hint logic here when zoomedImage changes
         if (zoomedImage && window.innerWidth < 768) {
             const hasSeen = localStorage.getItem('hasSeenSwipeHint');
@@ -186,19 +189,6 @@ function App() {
         }
         setZoomedImage(media[newIndex]);
     }, [zoomedImage, media]);
-
-    const swipeHandlers = useSwipeable({
-        onSwipedLeft: () => {
-            if (zoomedImage) navigateZoomedImage('next');
-        },
-        onSwipedRight: () => {
-            if (zoomedImage) navigateZoomedImage('prev');
-        },
-        preventDefaultTouchmoveEvent: false,
-        trackMouse: false,
-        delta: 40,
-        swipeDuration: 500
-    });
 
     // Handle ESC key and arrow keys to navigate images
     useEffect(() => {
@@ -1955,7 +1945,7 @@ function App() {
                             </motion.button>
 
                             {/* Left/Top: Media Container */}
-                            <div {...swipeHandlers} className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0 group overflow-hidden">
+                            <div className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0 group overflow-hidden">
                                 <AnimatePresence initial={false} custom={slideDirection} mode="popLayout">
                                     <motion.div
                                         key={zoomedImage._id}
@@ -1966,21 +1956,39 @@ function App() {
                                         exit="exit"
                                         transition={{ type: "tween", duration: 0.3, ease: "easeInOut" }}
                                         className="absolute inset-0 w-full h-full flex items-center justify-center"
+                                        drag={!isZoomedIn ? "x" : false}
+                                        dragConstraints={{ left: 0, right: 0 }}
+                                        dragElastic={0.8}
+                                        onDragEnd={(e, { offset, velocity }) => {
+                                            const swipe = offset.x;
+                                            if (swipe < -50 || velocity.x < -500) {
+                                                navigateZoomedImage('next');
+                                            } else if (swipe > 50 || velocity.x > 500) {
+                                                navigateZoomedImage('prev');
+                                            }
+                                        }}
                                     >
                                         {zoomedImage.type === 'video' ? (
                                             <video
                                                 src={zoomedImage.url}
-                                                className="max-w-full max-h-full object-contain"
+                                                className="max-w-full max-h-full object-contain pointer-events-none"
                                                 controls
                                                 autoPlay
                                             />
                                         ) : (
-                                            <TransformWrapper centerZoomedOut={true}>
+                                            <TransformWrapper 
+                                                centerZoomedOut={true}
+                                                panning={{ disabled: !isZoomedIn }}
+                                                onTransformed={(ref) => {
+                                                    setIsZoomedIn(ref.state.scale > 1);
+                                                }}
+                                            >
                                                 <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
                                                     <img
                                                         src={zoomedImage.url}
                                                         alt="Wedding moment zoomed"
-                                                        className="max-w-full max-h-full object-contain cursor-zoom-in"
+                                                        className={`max-w-full max-h-full object-contain ${!isZoomedIn ? 'cursor-grab active:cursor-grabbing pointer-events-none' : 'cursor-zoom-in'}`}
+                                                        draggable="false"
                                                     />
                                                 </TransformComponent>
                                             </TransformWrapper>
