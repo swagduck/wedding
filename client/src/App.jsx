@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight, Music, Moon, Sun, MessageCircle } from 'lucide-react';
+import { Heart, Camera, Image as ImageIcon, Loader2, Trash2, LogIn, LogOut, Sparkles, Flower, Star, Share2, X, Download, Video, Plus, Edit, MoreVertical, Film, ChevronLeft, ChevronRight, Music, Moon, Sun, MessageCircle, Send, Hand } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -82,6 +82,8 @@ function App() {
     const [multipleFiles, setMultipleFiles] = useState([]);
     const [likingPhotoId, setLikingPhotoId] = useState(null);
     const [zoomedImage, setZoomedImage] = useState(null);
+    const [slideDirection, setSlideDirection] = useState(1);
+    const [showSwipeHint, setShowSwipeHint] = useState(false);
     const [editingPhoto, setEditingPhoto] = useState(null);
     const [newCategoryForPhoto, setNewCategoryForPhoto] = useState('');
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(null);
@@ -137,6 +139,18 @@ function App() {
             document.body.style.overflow = 'unset';
         }
         
+        // Add side-effect hint logic here when zoomedImage changes
+        if (zoomedImage && window.innerWidth < 768) {
+            const hasSeen = localStorage.getItem('hasSeenSwipeHint');
+            if (!hasSeen) {
+                setShowSwipeHint(true);
+                setTimeout(() => {
+                    setShowSwipeHint(false);
+                    localStorage.setItem('hasSeenSwipeHint', 'true');
+                }, 3000);
+            }
+        }
+
         return () => {
             document.body.style.overflow = 'unset';
         };
@@ -150,8 +164,10 @@ function App() {
         let newIndex;
         if (direction === 'next') {
             newIndex = (currentIndex + 1) % media.length;
+            setSlideDirection(1);
         } else {
             newIndex = (currentIndex - 1 + media.length) % media.length;
+            setSlideDirection(-1);
         }
         setZoomedImage(media[newIndex]);
     }, [zoomedImage, media]);
@@ -164,7 +180,9 @@ function App() {
             if (zoomedImage) navigateZoomedImage('prev');
         },
         preventDefaultTouchmoveEvent: false,
-        trackMouse: false
+        trackMouse: false,
+        delta: 40,
+        swipeDuration: 500
     });
 
     // Handle ESC key and arrow keys to navigate images
@@ -1922,25 +1940,59 @@ function App() {
                             </motion.button>
 
                             {/* Left/Top: Media Container */}
-                            <div {...swipeHandlers} className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0 group">
-                                {zoomedImage.type === 'video' ? (
-                                    <video
-                                        src={zoomedImage.url}
-                                        className="max-w-full max-h-full object-contain"
-                                        controls
-                                        autoPlay
-                                    />
-                                ) : (
-                                    <TransformWrapper centerZoomedOut={true}>
-                                        <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
-                                            <img
+                            <div {...swipeHandlers} className="relative w-full h-[100dvh] md:flex-1 md:h-full bg-black flex items-center justify-center shrink-0 group overflow-hidden">
+                                <AnimatePresence initial={false} custom={slideDirection} mode="popLayout">
+                                    <motion.div
+                                        key={zoomedImage._id}
+                                        custom={slideDirection}
+                                        variants={slideVariants}
+                                        initial="enter"
+                                        animate="center"
+                                        exit="exit"
+                                        transition={{ type: "tween", duration: 0.3, ease: "easeInOut" }}
+                                        className="absolute inset-0 w-full h-full flex items-center justify-center"
+                                    >
+                                        {zoomedImage.type === 'video' ? (
+                                            <video
                                                 src={zoomedImage.url}
-                                                alt="Wedding moment zoomed"
-                                                className="max-w-full max-h-full object-contain cursor-zoom-in"
+                                                className="max-w-full max-h-full object-contain"
+                                                controls
+                                                autoPlay
                                             />
-                                        </TransformComponent>
-                                    </TransformWrapper>
-                                )}
+                                        ) : (
+                                            <TransformWrapper centerZoomedOut={true}>
+                                                <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
+                                                    <img
+                                                        src={zoomedImage.url}
+                                                        alt="Wedding moment zoomed"
+                                                        className="max-w-full max-h-full object-contain cursor-zoom-in"
+                                                    />
+                                                </TransformComponent>
+                                            </TransformWrapper>
+                                        )}
+                                    </motion.div>
+                                </AnimatePresence>
+                                
+                                {/* Swipe Hint Overlay */}
+                                <AnimatePresence>
+                                    {showSwipeHint && (
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="absolute inset-0 bg-black/60 z-[5020] flex flex-col items-center justify-center pointer-events-none"
+                                        >
+                                            <motion.div
+                                                animate={{ x: [-20, 20, -20] }}
+                                                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                                                className="bg-white/20 p-4 rounded-full backdrop-blur-md mb-4"
+                                            >
+                                                <Hand size={40} className="text-white drop-shadow-lg" />
+                                            </motion.div>
+                                            <p className="text-white font-medium text-lg drop-shadow-md">Vuốt sang ngang để xem ảnh</p>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                                 
                                 {/* Navigation Buttons */}
                                 <button
