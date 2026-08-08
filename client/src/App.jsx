@@ -117,6 +117,7 @@ function App() {
     const [audioUploading, setAudioUploading] = useState(false);
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const audioRef = React.useRef(null);
+    const wasPinchRef = React.useRef(false);
 
     // Welcome Letter
     const [showWelcomeLetter, setShowWelcomeLetter] = useState(false);
@@ -2001,11 +2002,23 @@ function App() {
                                         drag={!isZoomedIn ? "x" : false}
                                         dragConstraints={{ left: 0, right: 0 }}
                                         dragElastic={1}
+                                        onTouchStart={(e) => {
+                                            if (e.touches && e.touches.length > 1) {
+                                                wasPinchRef.current = true;
+                                            }
+                                        }}
+                                        onTouchEnd={(e) => {
+                                            if (e.touches && e.touches.length === 0) {
+                                                setTimeout(() => { wasPinchRef.current = false; }, 100);
+                                            }
+                                        }}
                                         onDragEnd={(e, { offset, velocity }) => {
+                                            if (wasPinchRef.current) return;
+                                            
                                             const swipe = offset.x;
-                                            if (swipe < -50 || velocity.x < -500) {
+                                            if (swipe < -80 || velocity.x < -800) {
                                                 navigateZoomedImage('next', offset.x);
-                                            } else if (swipe > 50 || velocity.x > 500) {
+                                            } else if (swipe > 80 || velocity.x > 800) {
                                                 navigateZoomedImage('prev', offset.x);
                                             }
                                         }}
